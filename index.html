@@ -674,40 +674,45 @@ body {
 
   <!-- ── ПОЗА: СИДИТ У КОСТРА (по умолчанию) ────────────── -->
   <g id="pose-sitting">
-    <ellipse cx="504" cy="469" rx="23" ry="5" fill="#000" opacity="0.2"/>
-    <!-- скрещенные ноги -->
-    <path d="M498,463 Q481,467 475,473 Q481,477 491,472 Q496,467 498,463 Z" fill="#2c4821"/>
-    <path d="M512,463 Q529,467 535,473 Q529,477 519,472 Q514,467 512,463 Z" fill="#2c4821"/>
-    <!-- ряса/тело -->
-    <path d="M491,445 Q487,456 490,463 Q505,467 520,463 Q523,456 519,445 Z" fill="#2c4821"/>
-    <path d="M496,445 Q493,455 496,463 Q505,466 514,463 Q517,455 514,445 Z" fill="#3a5e2e" opacity="0.6"/>
+    <!-- тень -->
+    <ellipse cx="505" cy="472" rx="20" ry="5" fill="#000" opacity="0.22"/>
+    <!-- ноги — скрещены под собой, компактно -->
+    <ellipse cx="505" cy="466" rx="16" ry="8" fill="#2c4821"/>
+    <path d="M490,466 Q492,471 505,473 Q518,471 520,466 Q518,462 505,461 Q492,462 490,466 Z" fill="#243e1a"/>
+    <!-- тело/ряса -->
+    <path d="M494,444 Q491,454 492,463 Q505,467 518,463 Q519,454 516,444 Z" fill="#2c4821"/>
+    <path d="M499,444 Q497,453 498,462 Q505,466 512,462 Q513,453 511,444 Z" fill="#3a5e2e" opacity="0.55"/>
     <!-- шея -->
-    <rect x="501" y="441" width="8" height="7" rx="3" fill="#c8a068"/>
+    <rect x="502" y="441" width="7" height="6" rx="2.5" fill="#c8a068"/>
     <!-- голова -->
-    <circle cx="505" cy="431" r="13" fill="#d4a870"/>
-    <ellipse cx="505" cy="440" rx="7" ry="4" fill="#b88850" opacity="0.4"/>
+    <circle cx="505" cy="429" r="14" fill="#d4a870"/>
+    <!-- подбородок/тень -->
+    <ellipse cx="505" cy="438" rx="8" ry="4.5" fill="#b88850" opacity="0.35"/>
     <!-- волосы -->
-    <path d="M492,427 Q495,415 505,412 Q515,415 518,427 Q513,419 505,417 Q497,419 492,427 Z" fill="#3a2010"/>
+    <path d="M491,424 Q494,412 505,409 Q516,412 519,424 Q514,415 505,413 Q496,415 491,424 Z" fill="#3a2010"/>
     <!-- шляпа — поля -->
-    <ellipse cx="505" cy="420" rx="17" ry="4.5" fill="#181008"/>
+    <ellipse cx="505" cy="416" rx="18" ry="5" fill="#181008"/>
     <!-- шляпа — тулья -->
-    <path d="M496,421 Q498,402 505,399 Q512,402 514,421 Z" fill="#181008"/>
-    <!-- бандана на шляпе -->
-    <rect x="497" y="415" width="16" height="2.5" rx="1" fill="#4a3018"/>
-    <!-- глаза — полузакрыты, задумчив -->
-    <path d="M499,430 Q501,428 503,430" stroke="#3a2010" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <path d="M507,430 Q509,428 511,430" stroke="#3a2010" stroke-width="2" fill="none" stroke-linecap="round"/>
-    <!-- румяные щёки от костра -->
-    <ellipse cx="499" cy="434" rx="3.5" ry="2" fill="#e87850" opacity="0.22"/>
-    <ellipse cx="511" cy="434" rx="3.5" ry="2" fill="#e87850" opacity="0.22"/>
+    <path d="M495,417 Q497,396 505,393 Q513,396 515,417 Z" fill="#181008"/>
+    <!-- бандана -->
+    <rect x="496" y="411" width="18" height="3" rx="1.2" fill="#4a3018"/>
+    <!-- глаза — мягко прищурены, у костра -->
+    <path d="M498,427 Q501,425 503,427" stroke="#3a2010" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <path d="M507,427 Q509,425 511,427" stroke="#3a2010" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <!-- брови -->
+    <path d="M498,424 Q501,422.5 503,424" stroke="#6a4020" stroke-width="1.1" fill="none"/>
+    <path d="M507,424 Q509,422.5 511,424" stroke="#6a4020" stroke-width="1.1" fill="none"/>
+    <!-- румяные щёки от огня -->
+    <ellipse cx="498" cy="431" rx="3.5" ry="2" fill="#e87850" opacity="0.2"/>
+    <ellipse cx="512" cy="431" rx="3.5" ry="2" fill="#e87850" opacity="0.2"/>
     <!-- улыбка -->
-    <path d="M501,436 Q505,439 509,436" stroke="#9a5828" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-    <!-- левая рука — на колене -->
-    <line x1="491" y1="449" x2="481" y2="458" stroke="#c09860" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="479" cy="459" r="4.5" fill="#d4a870"/>
-    <!-- правая рука — тянется к теплу костра -->
-    <line x1="519" y1="449" x2="534" y2="454" stroke="#c09860" stroke-width="5" stroke-linecap="round" id="arm-toward-fire"/>
-    <circle cx="536" cy="455" r="4.5" fill="#d4a870"/>
+    <path d="M501,434 Q505,437 509,434" stroke="#9a5828" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <!-- левая рука — лежит на коленях, вниз-влево -->
+    <path d="M493,448 Q489,456 487,462" stroke="#c09860" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <circle cx="486" cy="464" r="5" fill="#d4a870"/>
+    <!-- правая рука — к огню, вниз-вправо -->
+    <path d="M517,448 Q521,454 524,459" stroke="#c09860" stroke-width="6" stroke-linecap="round" fill="none" id="arm-toward-fire"/>
+    <circle cx="525" cy="461" r="5" fill="#d4a870"/>
   </g>
 
   <!-- ── ПОЗА: РУБИТ ДРОВА (в лесу) ─────────────────────── -->
