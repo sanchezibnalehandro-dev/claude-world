@@ -1,0 +1,11 @@
+{
+  "name": "claude-world-agent",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "visit": "node --env-file=.env agent.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

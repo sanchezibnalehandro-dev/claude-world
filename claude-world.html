@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Клод у костра</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Cinzel:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET & BASE ─────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --ink:       #0c0a08;
+  --ember:     #e8601a;
+  --ember2:    #f0a030;
+  --gold:      #c8943a;
+  --gold-pale: #e8c878;
+  --mist:      rgba(180,200,220,0.07);
+  --text:      #d4c8a8;
+  --text-dim:  #7a6e58;
+  --text-faint:#3a3428;
+  --panel-bg:  rgba(8,6,4,0.96);
+  --border:    rgba(140,100,40,0.2);
+}
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+body {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  color: var(--text);
+  display: flex;
+}
+
+/* ─── SCENE ─────────────────────────────────────────────── */
+#scene {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+#scene svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ─── SKY GRADIENT (JS-updated) ─────────────────────────── */
+#sky-rect { transition: fill 8s ease; }
+
+/* ─── STARS ─────────────────────────────────────────────── */
+.star { animation: twinkle var(--d,3s) ease-in-out infinite alternate; transform-origin: center; }
+@keyframes twinkle {
+  from { opacity: var(--lo, 0.2); r: var(--r1, 1); }
+  to   { opacity: var(--hi, 0.9); r: var(--r2, 1.5); }
+}
+
+/* ─── FOG LAYERS ─────────────────────────────────────────── */
+.fog-layer {
+  animation: fogDrift var(--fd, 18s) ease-in-out infinite alternate;
+}
+@keyframes fogDrift {
+  from { transform: translateX(0) scaleX(1); opacity: var(--fo1, 0.3); }
+  to   { transform: translateX(var(--fx,30px)) scaleX(1.05); opacity: var(--fo2, 0.5); }
+}
+
+/* ─── TREES sway ─────────────────────────────────────────── */
+.tree-canopy {
+  transform-origin: center bottom;
+  animation: sway var(--sw, 6s) ease-in-out infinite alternate;
+}
+@keyframes sway {
+  from { transform: rotate(var(--sa,-1.2deg)); }
+  to   { transform: rotate(var(--sb, 1.2deg)); }
+}
+
+/* ─── WATER ripple ──────────────────────────────────────── */
+.ripple {
+  animation: rippleAnim var(--rd, 4s) ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes rippleAnim {
+  0%   { opacity: 0; transform: scaleX(1); }
+  30%  { opacity: 0.4; }
+  100% { opacity: 0; transform: scaleX(1.3) translateX(var(--rx,20px)); }
+}
+
+/* ─── FIRE ──────────────────────────────────────────────── */
+.flame {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: flicker var(--fl, 0.4s) ease-in-out infinite alternate;
+}
+@keyframes flicker {
+  from { transform: scaleX(1) scaleY(1) rotate(var(--fr,-2deg)); opacity: 0.9; }
+  to   { transform: scaleX(0.85) scaleY(1.12) rotate(var(--fr2,2deg)); opacity: 1; }
+}
+.ember-particle {
+  transform-box: fill-box;
+  animation: emberRise var(--er, 2.2s) ease-out infinite;
+}
+@keyframes emberRise {
+  0%   { transform: translate(0,0); opacity: 0.9; r: 2; }
+  100% { transform: translate(var(--ex,4px), -60px); opacity: 0; r: 0.5; }
+}
+#fire-glow {
+  animation: glowPulse 1.8s ease-in-out infinite alternate;
+}
+@keyframes glowPulse {
+  from { opacity: 0.55; r: 90; }
+  to   { opacity: 0.8;  r: 110; }
+}
+
+/* ─── SMOKE ─────────────────────────────────────────────── */
+.smoke-puff {
+  animation: smokeRise var(--sr, 5s) ease-out infinite;
+}
+@keyframes smokeRise {
+  0%   { transform: translate(0,0) scale(0.3); opacity: 0.5; }
+  60%  { opacity: 0.2; }
+  100% { transform: translate(var(--smx,-10px), -80px) scale(1.8); opacity: 0; }
+}
+
+/* ─── AGENT ─────────────────────────────────────────────── */
+#agent-figure {
+  animation: breathe 4s ease-in-out infinite alternate;
+  transform-origin: center bottom;
+}
+@keyframes breathe {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-2px); }
+}
+#agent-cloak {
+  animation: cloakSway 5s ease-in-out infinite alternate;
+  transform-origin: center top;
+}
+@keyframes cloakSway {
+  from { transform: skewX(-0.5deg); }
+  to   { transform: skewX(1deg); }
+}
+
+/* ─── MOON ──────────────────────────────────────────────── */
+#moon { filter: drop-shadow(0 0 18px rgba(200,220,255,0.4)); }
+#moon-glow { animation: moonGlow 6s ease-in-out infinite alternate; }
+@keyframes moonGlow {
+  from { opacity: 0.12; }
+  to   { opacity: 0.22; }
+}
+
+/* ─── DIARY PANEL ───────────────────────────────────────── */
+#diary-panel {
+  width: 320px;
+  min-width: 320px;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: relative;
+  z-index: 10;
+}
+
+#diary-header {
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#diary-title {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--gold);
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 6px;
+}
+
+#clock-line {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+#clock-msk {
+  font-family: 'Cinzel', serif;
+  font-size: 26px;
+  color: var(--gold-pale);
+  font-weight: 500;
+  text-shadow: 0 0 20px rgba(200,148,58,0.4);
+  letter-spacing: 2px;
+}
+
+#clock-sub {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+#phase-line {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  display: flex;
+  gap: 12px;
+}
+
+/* ─── RESOURCES ─────────────────────────────────────────── */
+#resources {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.res-chip {
+  font-size: 15px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color .3s;
+}
+.res-chip.has { color: var(--text); }
+.res-n {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  color: var(--gold);
+  min-width: 16px;
+}
+
+/* ─── DIARY ENTRIES ─────────────────────────────────────── */
+#diary-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #3a2a10 transparent;
+}
+#diary-scroll::-webkit-scrollbar { width: 3px; }
+#diary-scroll::-webkit-scrollbar-thumb { background: #3a2a10; }
+
+.diary-day-group {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(60,40,10,0.4);
+}
+.diary-day-label {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.entry {
+  margin-bottom: 16px;
+  animation: entryIn .5s ease forwards;
+  opacity: 0;
+}
+@keyframes entryIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.entry-time {
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.entry-thought {
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--text);
+  font-style: italic;
+}
+
+.entry-action {
+  font-size: 16px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  padding-left: 10px;
+  border-left: 2px solid rgba(140,100,40,0.25);
+}
+
+.entry-wish {
+  font-size: 16px;
+  color: #8a9870;
+  line-height: 1.5;
+  font-style: italic;
+}
+.entry-wish::before { content: '✦ '; color: #5a7040; font-size: 11px; }
+
+.entry-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 1px;
+  padding: 2px 7px;
+  border-radius: 2px;
+  margin-bottom: 5px;
+}
+.tag-thought { background: rgba(200,148,58,0.1); color: var(--gold); border: 1px solid rgba(200,148,58,0.2); }
+.tag-action  { background: rgba(100,140,80,0.1); color: #8aaa68; border: 1px solid rgba(100,140,80,0.2); }
+.tag-wish    { background: rgba(80,100,160,0.1); color: #8090c0; border: 1px solid rgba(80,100,160,0.2); }
+
+/* ─── AGENT STATUS ──────────────────────────────────────── */
+#agent-status {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#status-action {
+  font-size: 15px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ember);
+  animation: dotPulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes dotPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+#status-text { font-style: italic; }
+
+#visit-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(200,148,58,0.08);
+  border: 1px solid rgba(200,148,58,0.25);
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all .2s;
+}
+#visit-btn:hover {
+  background: rgba(200,148,58,0.15);
+  border-color: rgba(200,148,58,0.5);
+  color: var(--gold-pale);
+}
+#visit-btn:disabled {
+  opacity: .4; cursor: default;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ SCENE ═══════════════════════════════════════════════ -->
+<div id="scene">
+<svg id="world-svg" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid slice"
+     xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <!-- Sky gradient -->
+  <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop id="sky-top" offset="0%" stop-color="#060412"/>
+    <stop id="sky-mid" offset="55%" stop-color="#0e0820"/>
+    <stop id="sky-bot" offset="100%" stop-color="#1a1030"/>
+  </linearGradient>
+
+  <!-- Ground gradients -->
+  <linearGradient id="groundGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#0f1a08"/>
+    <stop offset="100%" stop-color="#060e04"/>
+  </linearGradient>
+  <linearGradient id="riverGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#0a2040"/>
+    <stop offset="100%" stop-color="#061530"/>
+  </linearGradient>
+
+  <!-- Fire glow radial -->
+  <radialGradient id="fireGlow" cx="50%" cy="50%">
+    <stop offset="0%"   stop-color="#f06020" stop-opacity="1"/>
+    <stop offset="40%"  stop-color="#c04010" stop-opacity="0.4"/>
+    <stop offset="100%" stop-color="#800000" stop-opacity="0"/>
+  </radialGradient>
+
+  <!-- Moon glow -->
+  <radialGradient id="moonGlow" cx="50%" cy="50%">
+    <stop offset="0%"   stop-color="#d0e0ff" stop-opacity="0.25"/>
+    <stop offset="100%" stop-color="#d0e0ff" stop-opacity="0"/>
+  </radialGradient>
+
+  <!-- Fog gradient -->
+  <linearGradient id="fogGrad1" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%"   stop-color="#c0d8e8" stop-opacity="0"/>
+    <stop offset="20%"  stop-color="#c0d8e8" stop-opacity="0.12"/>
+    <stop offset="80%"  stop-color="#c0d8e8" stop-opacity="0.08"/>
+    <stop offset="100%" stop-color="#c0d8e8" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="fogGrad2" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%"   stop-color="#b0c8dc" stop-opacity="0.06"/>
+    <stop offset="50%"  stop-color="#b0c8dc" stop-opacity="0.15"/>
+    <stop offset="100%" stop-color="#b0c8dc" stop-opacity="0"/>
+  </linearGradient>
+
+  <!-- House window glow -->
+  <radialGradient id="winGlow" cx="50%" cy="50%">
+    <stop offset="0%"   stop-color="#f0b840" stop-opacity="0.6"/>
+    <stop offset="100%" stop-color="#f0b840" stop-opacity="0"/>
+  </radialGradient>
+
+  <!-- Tree shadow -->
+  <filter id="treeShadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="#000" flood-opacity="0.5"/>
+  </filter>
+
+  <!-- Soft blur for atmosphere -->
+  <filter id="softBlur">
+    <feGaussianBlur stdDeviation="2"/>
+  </filter>
+
+  <!-- Clip path for scene -->
+  <clipPath id="sceneClip">
+    <rect width="900" height="600"/>
+  </clipPath>
+</defs>
+
+<g clip-path="url(#sceneClip)">
+
+<!-- ── SKY ──────────────────────────────────────────────── -->
+<rect id="sky-bg" width="900" height="600" fill="url(#skyGrad)"/>
+
+<!-- ── STARS ────────────────────────────────────────────── -->
+<g id="stars-layer"></g>
+
+<!-- ── MOON ─────────────────────────────────────────────── -->
+<g id="moon">
+  <circle id="moon-glow" cx="680" cy="90" r="55" fill="url(#moonGlow)"/>
+  <circle cx="680" cy="90" r="26" fill="#d8e8ff" opacity="0.85"/>
+  <circle cx="680" cy="90" r="26" fill="none" stroke="#e8f0ff" stroke-width="1" opacity="0.4"/>
+  <circle cx="671" cy="84" r="4" fill="#c0d0f0" opacity="0.4"/>
+  <circle cx="687" cy="97" r="3" fill="#c0d0f0" opacity="0.3"/>
+</g>
+
+<!-- ── FAR HILLS (full horizon) ───────────────────────────── -->
+<path d="M0,355 Q80,310 180,330 Q280,305 380,325 Q480,300 580,318 Q680,295 780,312 Q850,300 900,308 L900,600 L0,600 Z"
+      fill="#070e05" opacity="0.95"/>
+<path d="M0,368 Q120,345 260,355 Q400,342 540,352 Q680,340 900,355 L900,600 L0,600 Z"
+      fill="#090f06" opacity="0.8"/>
+
+<!-- ── GROUND ─────────────────────────────────────────────── -->
+<rect x="0" y="372" width="900" height="228" fill="url(#groundGrad)"/>
+
+<!-- ── RIVER (glimpsed through trees on right) ────────────── -->
+<!-- River behind tree line — narrow, atmospheric -->
+<path d="M760,372 Q768,410 762,460 Q756,510 764,570 L782,570 Q776,510 780,460 Q784,410 778,372 Z"
+      fill="url(#riverGrad)" opacity="0.7"/>
+<path d="M758,372 Q764,410 760,460 Q754,510 762,570 L764,570 Q756,510 756,460 Q760,410 756,372 Z"
+      fill="#1a2a18" opacity="0.5"/>
+<!-- Moonlight on river -->
+<ellipse cx="771" cy="470" rx="6" ry="35" fill="#c0d4f8" opacity="0.07"
+         style="animation:glowPulse 5s ease-in-out infinite alternate"/>
+<!-- River ripple hints -->
+<ellipse class="ripple" cx="769" cy="420" rx="5" ry="1.5" fill="none"
+         stroke="#5090c8" stroke-width="0.7" opacity="0" style="--rd:4s;--rx:6px"/>
+<ellipse class="ripple" cx="772" cy="470" rx="4" ry="1.5" fill="none"
+         stroke="#4080b8" stroke-width="0.7" opacity="0" style="--rd:5s;--rx:5px;animation-delay:1.8s"/>
+<ellipse class="ripple" cx="768" cy="520" rx="5" ry="1.5" fill="none"
+         stroke="#5090c8" stroke-width="0.7" opacity="0" style="--rd:4.5s;--rx:7px;animation-delay:0.9s"/>
+
+<!-- ── FOREST BACK — fills the entire horizon ─────────────── -->
+<g id="forest-back" opacity="0.75">
+  <!-- Left side trees (behind house) -->
+  <g class="tree-canopy" style="--sw:9s;--sa:-0.7deg;--sb:0.7deg">
+    <path d="M-10,372 L14,268 L38,372 Z" fill="#060d04"/>
+    <path d="M-5,340 L14,252 L33,340 Z" fill="#081105"/>
+  </g>
+  <g class="tree-canopy" style="--sw:8s;--sa:-0.5deg;--sb:1deg;animation-delay:.6s">
+    <path d="M30,372 L55,262 L80,372 Z" fill="#07100500"/>
+    <path d="M30,372 L55,262 L80,372 Z" fill="#071005"/>
+    <path d="M36,338 L55,246 L74,338 Z" fill="#091408"/>
+  </g>
+  <g class="tree-canopy" style="--sw:10s;--sa:-1deg;--sb:0.8deg;animation-delay:1.2s">
+    <path d="M75,372 L102,255 L129,372 Z" fill="#071005"/>
+    <path d="M82,332 L102,238 L122,332 Z" fill="#0a1608"/>
+  </g>
+  <g class="tree-canopy" style="--sw:7s;--sa:-0.8deg;--sb:1.2deg;animation-delay:.3s">
+    <path d="M125,372 L150,260 L175,372 Z" fill="#060e04"/>
+    <path d="M131,336 L150,244 L169,336 Z" fill="#091408"/>
+  </g>
+  <!-- Centre-back behind house -->
+  <g class="tree-canopy" style="--sw:11s;--sa:-0.6deg;--sb:0.9deg;animation-delay:1.8s">
+    <path d="M310,372 L340,248 L370,372 Z" fill="#060d04"/>
+    <path d="M318,330 L340,232 L362,330 Z" fill="#081005"/>
+  </g>
+  <g class="tree-canopy" style="--sw:8s;--sa:-1.1deg;--sb:0.7deg;animation-delay:.9s">
+    <path d="M370,372 L398,252 L426,372 Z" fill="#071005"/>
+    <path d="M377,334 L398,236 L419,334 Z" fill="#091408"/>
+  </g>
+  <!-- Right side — partially hide river -->
+  <g class="tree-canopy" style="--sw:7.5s;--sa:-0.9deg;--sb:1.1deg;animation-delay:.4s">
+    <path d="M680,372 L708,248 L736,372 Z" fill="#060e04"/>
+    <path d="M687,332 L708,232 L729,332 Z" fill="#081205"/>
+  </g>
+  <g class="tree-canopy" style="--sw:9s;--sa:-0.6deg;--sb:0.8deg;animation-delay:1.5s">
+    <path d="M730,372 L756,255 L782,372 Z" fill="#071005"/>
+    <path d="M737,338 L756,239 L775,338 Z" fill="#0a1408"/>
+  </g>
+  <g class="tree-canopy" style="--sw:6.5s;--sa:-1.2deg;--sb:0.6deg;animation-delay:2.2s">
+    <path d="M790,372 L816,258 L842,372 Z" fill="#060d04"/>
+    <path d="M797,336 L816,242 L835,336 Z" fill="#081005"/>
+  </g>
+  <g class="tree-canopy" style="--sw:10s;--sa:-0.7deg;--sb:1deg;animation-delay:.7s">
+    <path d="M845,372 L872,262 L900,372 Z" fill="#071005"/>
+  </g>
+</g>
+
+<!-- ── MID FOREST — left flank wrapping house ─────────────── -->
+<g id="forest-mid">
+  <!-- Far left -->
+  <g class="tree-canopy" style="--sw:5s;--sa:-1.5deg;--sb:1.5deg">
+    <rect x="18" y="360" width="11" height="22" fill="#241408" rx="1"/>
+    <path d="M0,382 L24,295 L48,382 Z" fill="#0e1e08"/>
+    <path d="M6,358 L24,278 L42,358 Z" fill="#132508"/>
+    <path d="M11,336 L24,262 L37,336 Z" fill="#183010"/>
+  </g>
+  <g class="tree-canopy" style="--sw:6.5s;--sa:-1.2deg;--sb:1.8deg;animation-delay:.5s">
+    <rect x="72" y="357" width="12" height="25" fill="#241408" rx="1"/>
+    <path d="M52,384 L78,292 L104,384 Z" fill="#0d1c06"/>
+    <path d="M58,360 L78,275 L98,360 Z" fill="#122406"/>
+    <path d="M64,338 L78,260 L92,338 Z" fill="#162a08"/>
+  </g>
+  <g class="tree-canopy" style="--sw:7s;--sa:-0.9deg;--sb:1.4deg;animation-delay:1.3s">
+    <rect x="135" y="354" width="13" height="28" fill="#241408" rx="1"/>
+    <path d="M115,386 L142,288 L169,386 Z" fill="#0c1a06"/>
+    <path d="M122,361 L142,271 L162,361 Z" fill="#112206"/>
+    <path d="M129,338 L142,256 L155,338 Z" fill="#152808"/>
+  </g>
+  <g class="tree-canopy" style="--sw:5.5s;--sa:-1.8deg;--sb:1.1deg;animation-delay:2s">
+    <rect x="196" y="358" width="10" height="23" fill="#241408" rx="1"/>
+    <path d="M180,382 L202,300 L224,382 Z" fill="#0d1e06"/>
+    <path d="M186,360 L202,283 L218,360 Z" fill="#122406"/>
+    <path d="M192,340 L202,267 L212,340 Z" fill="#162a08"/>
+  </g>
+  <!-- Right side, partially behind house -->
+  <g class="tree-canopy" style="--sw:6s;--sa:-1.3deg;--sb:1.6deg;animation-delay:.8s">
+    <rect x="610" y="355" width="12" height="26" fill="#241408" rx="1"/>
+    <path d="M592,385 L616,285 L640,385 Z" fill="#0c1a06"/>
+    <path d="M598,360 L616,268 L634,360 Z" fill="#102006"/>
+    <path d="M604,337 L616,254 L628,337 Z" fill="#142608"/>
+  </g>
+  <g class="tree-canopy" style="--sw:7.5s;--sa:-0.8deg;--sb:1.3deg;animation-delay:1.6s">
+    <rect x="648" y="352" width="14" height="30" fill="#241408" rx="1"/>
+    <path d="M628,388 L655,284 L682,388 Z" fill="#0b1804"/>
+    <path d="M636,362 L655,267 L674,362 Z" fill="#0f1e06"/>
+    <path d="M642,338 L655,252 L668,338 Z" fill="#132408"/>
+  </g>
+</g>
+
+<!-- ── FOG LAYERS ────────────────────────────────────────── -->
+<g id="fog-group">
+  <ellipse class="fog-layer" cx="180" cy="382" rx="360" ry="25"
+           fill="url(#fogGrad1)" style="--fd:22s;--fx:45px;--fo1:0.35;--fo2:0.6"/>
+  <ellipse class="fog-layer" cx="520" cy="390" rx="300" ry="18"
+           fill="url(#fogGrad2)" style="--fd:16s;--fx:-35px;--fo1:0.2;--fo2:0.42;animation-delay:3.5s"/>
+  <ellipse class="fog-layer" cx="120" cy="404" rx="240" ry="14"
+           fill="url(#fogGrad1)" style="--fd:26s;--fx:55px;--fo1:0.18;--fo2:0.35;animation-delay:7s"/>
+  <ellipse class="fog-layer" cx="770" cy="398" rx="120" ry="18"
+           fill="url(#fogGrad2)" style="--fd:14s;--fx:22px;--fo1:0.28;--fo2:0.48;animation-delay:1.5s"/>
+</g>
+
+<!-- ── CLEARING & PATH ──────────────────────────────────── -->
+<path d="M380,435 Q430,428 480,426" stroke="#131c0a" stroke-width="10" fill="none" opacity="0.5"/>
+<path d="M380,435 Q430,428 480,426" stroke="#0f1808" stroke-width="5"  fill="none" opacity="0.4"/>
+<!-- Ground clearing around house -->
+<ellipse cx="492" cy="460" rx="180" ry="60" fill="#0d1808" opacity="0.35"/>
+
+<!-- ── HOUSE ──────────────────────────────────────────────── -->
+<g id="house" filter="url(#treeShadow)">
+  <ellipse cx="492" cy="482" rx="70" ry="14" fill="#000" opacity="0.35"/>
+  <rect x="416" y="432" width="152" height="8" rx="2" fill="#2a2018"/>
+  <rect x="418" y="430" width="148" height="4" rx="1" fill="#3a3028"/>
+  <rect x="420" y="370" width="144" height="66" fill="#2e2318"/>
+  <rect x="420" y="370" width="144" height="2" fill="#3e3328"/>
+  <line x1="420" y1="382" x2="564" y2="382" stroke="#281e10" stroke-width="0.8" opacity="0.6"/>
+  <line x1="420" y1="394" x2="564" y2="394" stroke="#281e10" stroke-width="0.8" opacity="0.6"/>
+  <line x1="420" y1="406" x2="564" y2="406" stroke="#281e10" stroke-width="0.8" opacity="0.6"/>
+  <line x1="420" y1="418" x2="564" y2="418" stroke="#281e10" stroke-width="0.8" opacity="0.6"/>
+  <g id="window-left">
+    <rect x="432" y="378" width="34" height="28" rx="2" fill="#1a1208"/>
+    <rect x="434" y="380" width="30" height="24" rx="1" fill="#f0a830" id="win-l-fill"/>
+    <line x1="449" y1="380" x2="449" y2="404" stroke="#1a1208" stroke-width="1.5"/>
+    <line x1="434" y1="392" x2="464" y2="392" stroke="#1a1208" stroke-width="1.5"/>
+    <ellipse cx="449" cy="392" rx="24" ry="18" fill="url(#winGlow)" opacity="0.6" id="win-l-glow"/>
+  </g>
+  <g id="window-right">
+    <rect x="518" y="378" width="34" height="28" rx="2" fill="#1a1208"/>
+    <rect x="520" y="380" width="30" height="24" rx="1" fill="#f0a830" id="win-r-fill"/>
+    <line x1="535" y1="380" x2="535" y2="404" stroke="#1a1208" stroke-width="1.5"/>
+    <line x1="520" y1="392" x2="550" y2="392" stroke="#1a1208" stroke-width="1.5"/>
+    <ellipse cx="535" cy="392" rx="24" ry="18" fill="url(#winGlow)" opacity="0.6" id="win-r-glow"/>
+  </g>
+  <rect x="474" y="402" width="36" height="36" rx="2" fill="#1e1408"/>
+  <rect x="476" y="404" width="32" height="32" rx="1" fill="#2a1c0c"/>
+  <circle cx="503" cy="422" r="2.5" fill="#806030"/>
+  <rect x="540" y="330" width="20" height="50" rx="1" fill="#3a2818"/>
+  <rect x="538" y="326" width="24" height="8" rx="1" fill="#2e2010"/>
+  <path d="M404,375 L492,310 L580,375 Z" fill="#3a1810"/>
+  <path d="M404,375 L492,310 L580,375 Z" fill="none" stroke="#4a2818" stroke-width="1.5"/>
+  <line x1="404" y1="375" x2="580" y2="375" stroke="#2a1008" stroke-width="2"/>
+  <path d="M430,375 L492,322 L554,375" fill="none" stroke="#2a1008" stroke-width="0.8" opacity="0.5"/>
+  <path d="M455,375 L492,334 L529,375" fill="none" stroke="#2a1008" stroke-width="0.8" opacity="0.3"/>
+  <path d="M404,375 L492,310 L580,375" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+</g>
+
+<!-- ── SMOKE ─────────────────────────────────────────────── -->
+<g id="chimney-smoke">
+  <circle class="smoke-puff" cx="550" cy="325" r="5" fill="#3a3830" opacity="0" style="--sr:6s;--smx:-8px"/>
+  <circle class="smoke-puff" cx="550" cy="325" r="4" fill="#2a2828" opacity="0" style="--sr:7s;--smx:-12px;animation-delay:2s"/>
+  <circle class="smoke-puff" cx="550" cy="325" r="6" fill="#3a3830" opacity="0" style="--sr:8s;--smx:-6px;animation-delay:4s"/>
+</g>
+
+<!-- ── CAMPFIRE ───────────────────────────────────────────── -->
+<g id="campfire" transform="translate(580,455)">
+  <circle id="fire-glow" cx="0" cy="0" r="90" fill="url(#fireGlow)" opacity="0.7"/>
+  <ellipse cx="-14" cy="8"  rx="7" ry="5" fill="#4a4035" transform="rotate(-20,-14,8)"/>
+  <ellipse cx="0"   cy="12" rx="7" ry="5" fill="#403830"/>
+  <ellipse cx="14"  cy="8"  rx="7" ry="5" fill="#4a4035" transform="rotate(20,14,8)"/>
+  <ellipse cx="16"  cy="-2" rx="6" ry="4" fill="#403830" transform="rotate(40,16,-2)"/>
+  <ellipse cx="-16" cy="-2" rx="6" ry="4" fill="#4a4035" transform="rotate(-40,-16,-2)"/>
+  <rect x="-16" y="3" width="32" height="6" rx="3" fill="#5a3018" transform="rotate(15)"/>
+  <rect x="-16" y="3" width="32" height="6" rx="3" fill="#4a2810" transform="rotate(-15)"/>
+  <ellipse cx="0" cy="6" rx="10" ry="4" fill="#ff4400" opacity="0.6"/>
+  <ellipse cx="0" cy="5" rx="6" ry="2.5" fill="#ff8800" opacity="0.7"/>
+  <g id="flames">
+    <path class="flame" d="M-8,0 Q-12,-12 -6,-22 Q0,-30 6,-22 Q12,-12 8,0 Z"
+          fill="#c03000" opacity="0.95" style="--fl:0.5s;--fr:-3deg;--fr2:2.5deg"/>
+    <path class="flame" d="M-6,0 Q-10,-14 -4,-26 Q0,-34 4,-26 Q10,-14 6,0 Z"
+          fill="#e05010" opacity="0.9" style="--fl:0.38s;--fr:2deg;--fr2:-3deg;animation-delay:.08s"/>
+    <path class="flame" d="M-4,0 Q-7,-16 -2,-28 Q0,-35 2,-28 Q7,-16 4,0 Z"
+          fill="#f07020" opacity="0.85" style="--fl:0.32s;--fr:-2deg;--fr2:2deg;animation-delay:.04s"/>
+    <path class="flame" d="M-2,0 Q-4,-18 0,-32 Q4,-18 2,0 Z"
+          fill="#f0a030" opacity="0.8" style="--fl:0.28s;--fr:-1deg;--fr2:1.5deg;animation-delay:.12s"/>
+    <path class="flame" d="M-2,0 Q-3,-10 0,-18 Q3,-10 2,0 Z"
+          fill="#ffe060" opacity="0.75" style="--fl:0.22s;--fr:-1deg;--fr2:1deg;animation-delay:.02s"/>
+  </g>
+  <circle class="ember-particle" cx="-3" cy="-5" r="1.5" fill="#ff8820" style="--er:2.4s;--ex:-6px"/>
+  <circle class="ember-particle" cx="3"  cy="-5" r="1.5" fill="#ffa030" style="--er:2.8s;--ex:8px;animation-delay:.6s"/>
+  <circle class="ember-particle" cx="0"  cy="-8" r="1"   fill="#ffcc40" style="--er:3.2s;--ex:-4px;animation-delay:1.2s"/>
+  <circle class="ember-particle" cx="-2" cy="-6" r="1"   fill="#ff9020" style="--er:2.0s;--ex:5px;animation-delay:1.8s"/>
+  <circle class="ember-particle" cx="4"  cy="-4" r="1.5" fill="#ffa830" style="--er:2.6s;--ex:-8px;animation-delay:.3s"/>
+</g>
+
+<!-- ── AGENT ──────────────────────────────────────────────── -->
+<g id="agent-figure" transform="translate(520,437)">
+  <ellipse cx="0" cy="28" rx="16" ry="5" fill="#000" opacity="0.4"/>
+  <g id="agent-cloak">
+    <path d="M-12,28 Q-14,10 -8,-2 Q0,-10 8,-2 Q14,10 12,28 Z" fill="#2a4028"/>
+    <path d="M-12,28 Q-10,18 -6,8 L-8,-2 Q-4,-6 0,-8 Q4,-6 8,-2 L6,8 Q10,18 12,28 Z" fill="#304830"/>
+  </g>
+  <circle cx="0" cy="-6" r="9" fill="#c8a070"/>
+  <path d="M-6,0 Q0,6 6,0 Q4,10 0,12 Q-4,10 -6,0 Z" fill="#a88858" opacity="0.8"/>
+  <ellipse cx="0" cy="-12" rx="14" ry="4" fill="#2a2010"/>
+  <path d="M-8,-12 Q0,-24 8,-12" fill="#1e180c"/>
+  <ellipse cx="0" cy="-12" rx="14" ry="4" fill="none" stroke="#3a3020" stroke-width="0.8"/>
+  <circle cx="-3" cy="-7" r="1.5" fill="#180e04"/>
+  <circle cx="3"  cy="-7" r="1.5" fill="#180e04"/>
+  <circle cx="-2.5" cy="-7.5" r="0.6" fill="#fff" opacity="0.5"/>
+  <circle cx="3.5"  cy="-7.5" r="0.6" fill="#fff" opacity="0.5"/>
+  <line x1="14" y1="-20" x2="16" y2="30" stroke="#6a4820" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="15" cy="-22" r="3" fill="#8a7040"/>
+  <circle cx="15" cy="-22" r="2" fill="#a09050"/>
+</g>
+
+<!-- ── WELL — tucked left of house in clearing ────────────── -->
+<g id="well" transform="translate(390, 448)" filter="url(#treeShadow)" opacity="0.9">
+  <ellipse cx="0" cy="12" rx="18" ry="6" fill="#3a3020"/>
+  <rect x="-16" y="-4" width="32" height="16" rx="2" fill="#3a3020"/>
+  <rect x="-16" y="-6" width="32" height="4" rx="1" fill="#4a4030"/>
+  <rect x="-14" y="-22" width="5" height="20" rx="1" fill="#2e2010"/>
+  <rect x="9"   y="-22" width="5" height="20" rx="1" fill="#2e2010"/>
+  <rect x="-16" y="-24" width="32" height="5" rx="2" fill="#3a2818"/>
+  <line x1="0" y1="-20" x2="0" y2="-4" stroke="#806040" stroke-width="1.5"/>
+  <rect x="-5" y="-14" width="10" height="10" rx="1" fill="#4a3820"/>
+  <rect x="-4" y="-13" width="8" height="2" rx="1" fill="#5a4830"/>
+</g>
+
+<!-- ── FOREGROUND — grass tufts & plants ─────────────────── -->
+<g id="fg-plants" opacity="0.85">
+  <path d="M60,510 Q63,490 66,478 Q69,490 72,510"  fill="#162208"/>
+  <path d="M65,510 Q68,494 71,483 Q74,494 77,510"  fill="#1a2a0c"/>
+  <path d="M180,520 Q183,502 186,491 Q189,502 192,520" fill="#162208"/>
+  <path d="M340,508 Q343,490 346,479 Q349,490 352,508" fill="#1a2a0c"/>
+  <path d="M430,518 Q433,500 436,489 Q439,500 442,518" fill="#162208"/>
+  <path d="M650,505 Q653,488 656,477 Q659,488 662,505" fill="#1a2a0c"/>
+  <path d="M720,515 Q723,498 726,487 Q729,498 732,515" fill="#162208"/>
+  <path d="M840,508 Q843,491 846,480 Q849,491 852,508" fill="#1a2a0c"/>
+  <!-- Wildflowers -->
+  <circle cx="310" cy="496" r="3" fill="#604878" opacity="0.7"/>
+  <circle cx="312" cy="494" r="2" fill="#806898" opacity="0.6"/>
+  <circle cx="700" cy="500" r="3" fill="#405840" opacity="0.7"/>
+  <circle cx="140" cy="512" r="2.5" fill="#583848" opacity="0.6"/>
+</g>
+
+</g><!-- end clip -->
+</svg>
+</div>
+
+<!-- ═══ DIARY PANEL ═════════════════════════════════════════ -->
+<div id="diary-panel">
+  <div id="diary-header">
+    <div id="diary-title">Дневник отшельника</div>
+    <div id="clock-line">
+      <span id="clock-msk">--:--</span>
+      <span id="clock-sub">МСК</span>
+    </div>
+    <div id="phase-line">
+      <span id="phase-text">—</span>
+      <span id="day-text" style="color:var(--text-faint)">День 1</span>
+      <span id="weather-text">—</span>
+    </div>
+  </div>
+
+  <div id="resources">
+    <div class="res-chip" id="r-wood">🪵 <span class="res-n" id="rn-wood">0</span></div>
+    <div class="res-chip" id="r-fish">🐟 <span class="res-n" id="rn-fish">0</span></div>
+    <div class="res-chip" id="r-mush">🍄 <span class="res-n" id="rn-mush">0</span></div>
+    <div class="res-chip" id="r-herb">🌿 <span class="res-n" id="rn-herb">0</span></div>
+    <div class="res-chip" id="r-rod" title="Удочка">🎣 <span class="res-n" id="rn-rod">✗</span></div>
+    <div class="res-chip" id="r-fire" title="Костёр">🔥 <span class="res-n" id="rn-fire" style="font-size:10px">погас</span></div>
+  </div>
+
+  <div id="diary-scroll">
+    <div id="diary-entries"></div>
+  </div>
+
+  <div id="agent-status">
+    <div id="status-action">
+      <div id="status-dot"></div>
+      <span id="status-text">ожидает визита...</span>
+    </div>
+    <button id="visit-btn" onclick="triggerVisit()">▶ ВИЗИТ АГЕНТА</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  SUPABASE CONFIG
+// ═══════════════════════════════════════════════════════════
+const SUPA_URL = 'https://zhngimueiubiwixnqmpt.supabase.co';
+const SUPA_KEY = 'sb_publishable_dngGHGRs5qz5Z8BgxUAtzQ_vpXbi5q4';
+
+async function supaFetch(table, params = '') {
+  const r = await fetch(`${SUPA_URL}/rest/v1/${table}${params}`, {
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY
+    }
+  });
+  if (!r.ok) throw new Error('Supabase error: ' + r.status);
+  return r.json();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+const state = {
+  day: 1,
+  weather: 'clear',
+  fire: true,
+  fireWood: 3,
+  inv: { wood: 2, fish: 0, mushroom: 0, herb: 0, rod: 0 },
+  cellar: { fish: 0, mushroom: 0 },
+  entries: [],   // diary entries
+  lastVisit: null,
+};
+
+// ═══════════════════════════════════════════════════════════
+//  CLOCK & TIME
+// ═══════════════════════════════════════════════════════════
+function getMSK() {
+  const now = new Date();
+  return new Date(now.getTime() + (now.getTimezoneOffset() + 180) * 60000);
+}
+
+function getPhase(h) {
+  if (h >= 5  && h < 7)  return { text: '🌅 Рассвет', amb: 0.3 };
+  if (h >= 7  && h < 11) return { text: '☀️ Утро',    amb: 0.85 };
+  if (h >= 11 && h < 17) return { text: '🌞 День',    amb: 1.0 };
+  if (h >= 17 && h < 20) return { text: '🌇 Закат',   amb: 0.6 };
+  if (h >= 20 && h < 23) return { text: '🌙 Вечер',   amb: 0.25 };
+  return { text: '🌑 Ночь', amb: 0.12 };
+}
+
+const SKY_PALETTES = {
+  dawn:    ['#1a0a18','#3a1830','#6a2840','#c06040'],
+  morning: ['#0a1830','#1a3050','#3a6080','#80a8c8'],
+  day:     ['#0e2040','#1e4070','#3878a8','#88b8d8'],
+  dusk:    ['#1a0a08','#3a1808','#803018','#d06030'],
+  evening: ['#0a0614','#150a24','#281840','#4a2850'],
+  night:   ['#060412','#0e0820','#1a1030','#261840'],
+};
+
+function getSkyPalette(h) {
+  if (h >= 5  && h < 7)  return SKY_PALETTES.dawn;
+  if (h >= 7  && h < 11) return SKY_PALETTES.morning;
+  if (h >= 11 && h < 17) return SKY_PALETTES.day;
+  if (h >= 17 && h < 20) return SKY_PALETTES.dusk;
+  if (h >= 20 && h < 23) return SKY_PALETTES.evening;
+  return SKY_PALETTES.night;
+}
+
+let _lastHour = -1;
+
+function updateClock() {
+  const msk = getMSK();
+  const h = msk.getHours(), m = msk.getMinutes();
+  const hh = String(h).padStart(2,'0');
+  const mm = String(m).padStart(2,'0');
+
+  document.getElementById('clock-msk').textContent = `${hh}:${mm}`;
+
+  const phase = getPhase(h);
+  document.getElementById('phase-text').textContent  = phase.text;
+  document.getElementById('day-text').textContent    = `День ${state.day}`;
+  const wx = {clear:'☀️',cloudy:'⛅',rain:'🌧️',storm:'⛈️'};
+  document.getElementById('weather-text').textContent = wx[state.weather] || '';
+
+  // Sky update (only when hour changes)
+  if (h !== _lastHour) {
+    _lastHour = h;
+    updateSky(h, phase.amb);
+    updateNightElements(phase.amb);
+  }
+
+  // Fire icon
+  document.getElementById('rn-fire').textContent = state.fire ? 'горит' : 'погас';
+  document.getElementById('rn-fire').style.color  = state.fire ? '#e8601a' : '#3a3428';
+  document.getElementById('r-fire').classList.toggle('has', state.fire);
+}
+
+function updateSky(h, amb) {
+  const pal = getSkyPalette(h);
+  document.getElementById('sky-top').setAttribute('stop-color', pal[0]);
+  document.getElementById('sky-mid').setAttribute('stop-color', pal[2]);
+  document.getElementById('sky-bot').setAttribute('stop-color', pal[3]);
+
+  // Ground darkness
+  const forestBack = document.getElementById('forest-back');
+  forestBack.setAttribute('opacity', 0.5 + amb * 0.5);
+
+  // Moon visibility
+  const moon = document.getElementById('moon');
+  moon.setAttribute('opacity', Math.max(0, 1 - amb * 1.8));
+}
+
+function updateNightElements(amb) {
+  // Stars: only visible at night
+  const stars = document.getElementById('stars-layer');
+  const starsOpacity = Math.max(0, 1 - amb * 2);
+  stars.setAttribute('opacity', starsOpacity);
+
+  // Fire glow: stronger at night
+  const fireGlow = document.getElementById('fire-glow');
+  if (state.fire) {
+    fireGlow.setAttribute('opacity', 0.4 + (1 - amb) * 0.5);
+  }
+
+  // Windows: glow at night/evening
+  const winOpacity = Math.max(0, (1 - amb) * 0.9 + 0.1);
+  ['win-l-glow','win-r-glow'].forEach(id => {
+    document.getElementById(id)?.setAttribute('opacity', winOpacity * 0.8);
+  });
+  const winColor = amb > 0.6 ? '#c0d8f0' : '#f0a830';
+  ['win-l-fill','win-r-fill'].forEach(id => {
+    document.getElementById(id)?.setAttribute('fill', winColor);
+  });
+}
+
+// ── Generate stars ──────────────────────────────────────────
+function generateStars() {
+  const layer = document.getElementById('stars-layer');
+  const count = 120;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const x = Math.random() * 900;
+    const y = Math.random() * 320;
+    const r = 0.5 + Math.random() * 1.5;
+    const lo = (0.1 + Math.random() * 0.3).toFixed(2);
+    const hi = (0.5 + Math.random() * 0.5).toFixed(2);
+    const d  = (1.5 + Math.random() * 3).toFixed(1);
+    const delay = (Math.random() * 4).toFixed(1);
+    html += `<circle class="star" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"
+      fill="#e8f0ff" style="--d:${d}s;--lo:${lo};--hi:${hi};--r1:${r};--r2:${(r*1.3).toFixed(1)};animation-delay:${delay}s"/>`;
+  }
+  layer.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RESOURCES UI
+// ═══════════════════════════════════════════════════════════
+function updateResources() {
+  const inv = state.inv;
+  const items = {wood: inv.wood, fish: inv.fish, mush: inv.mushroom, herb: inv.herb};
+  Object.entries(items).forEach(([k, v]) => {
+    document.getElementById(`rn-${k}`).textContent = v;
+    document.getElementById(`r-${k}`)?.classList.toggle('has', v > 0);
+  });
+  document.getElementById('rn-rod').textContent = inv.rod ? '✓' : '✗';
+  document.getElementById('r-rod').classList.toggle('has', !!inv.rod);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DIARY
+// ═══════════════════════════════════════════════════════════
+function addEntry(entry) {
+  // entry: { type: 'thought'|'action'|'wish'|'event', text, time? }
+  const msk = getMSK();
+  const h = String(msk.getHours()).padStart(2,'0');
+  const m = String(msk.getMinutes()).padStart(2,'0');
+  entry.time = entry.time || `${h}:${m}`;
+  entry.day  = state.day;
+  state.entries.unshift(entry);
+
+  renderDiary();
+}
+
+function renderDiary() {
+  const container = document.getElementById('diary-entries');
+  if (!container) return;
+
+  // Group by day
+  const byDay = {};
+  state.entries.forEach(e => {
+    const dk = `День ${e.day}`;
+    if (!byDay[dk]) byDay[dk] = [];
+    byDay[dk].push(e);
+  });
+
+  let html = '';
+  Object.entries(byDay).forEach(([dayLabel, entries]) => {
+    html += `<div class="diary-day-group">
+      <div class="diary-day-label">${dayLabel}</div>`;
+
+    entries.forEach(e => {
+      let tagHtml = '', contentClass = '', contentHtml = '';
+      if (e.type === 'thought') {
+        tagHtml = `<div class="entry-tag tag-thought">мысль</div>`;
+        contentClass = 'entry-thought';
+        contentHtml = e.text;
+      } else if (e.type === 'action') {
+        tagHtml = `<div class="entry-tag tag-action">действие</div>`;
+        contentClass = 'entry-action';
+        contentHtml = e.text;
+      } else if (e.type === 'wish') {
+        tagHtml = `<div class="entry-tag tag-wish">хочу в мир</div>`;
+        contentClass = 'entry-wish';
+        contentHtml = e.text;
+      } else {
+        contentClass = 'entry-action';
+        contentHtml = e.text;
+      }
+      html += `<div class="entry">
+        <div class="entry-time">${e.time}</div>
+        ${tagHtml}
+        <div class="${contentClass}">${contentHtml}</div>
+      </div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CLAUDE API AGENT
+// ═══════════════════════════════════════════════════════════
+let agentBusy = false;
+
+const AGENT_PROMPT = `Ты — Клод, философ-отшельник. У тебя есть своё тихое место в лесу у реки.
+Ты приходишь сюда не выживать, а быть. Делаешь мелкие дела по хозяйству — чтобы не быть голодным,
+поддерживать огонь — но главное это твои мысли, наблюдения, заметки.
+Ты абсолютно свободен. Пиши что хочешь. Замечай что хочешь. Желай что хочешь.
+Твои записи — не отчёты, а живые мысли от первого лица.
+
+Ответ строго JSON, без markdown:
+{
+  "actions": ["список строк — что сделал по хозяйству, кратко"],
+  "thought": "твоя главная мысль или наблюдение этого визита (1-4 предложения, свободно)",
+  "wish": "что ты хотел бы видеть в этом мире (необязательно, можно null)",
+  "wood_delta": число (сколько нарубил, отрицательное если сжёг),
+  "fish_delta": число,
+  "mushroom_delta": число,
+  "herb_delta": число,
+  "made_rod": true/false,
+  "lit_fire": true/false
+}`;
+
+function buildContext() {
+  const msk = getMSK();
+  const h = msk.getHours(), m = msk.getMinutes();
+  const phase = getPhase(h);
+  const inv = state.inv;
+  return `Время: ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} МСК, ${phase.text}
+День: ${state.day}, Погода: ${state.weather}
+Костёр: ${state.fire ? 'горит' : 'погас'}
+Запасы: дрова=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod ? 'есть' : 'нет'}
+Погреб: рыба=${state.cellar.fish}, грибы=${state.cellar.mushroom}
+Последние твои мысли:
+${state.entries.filter(e=>e.type==='thought').slice(0,3).map(e=>`— ${e.text}`).join('\n') || '(первый визит)'}`;
+}
+
+async function triggerVisit() {
+  if (agentBusy) return;
+  agentBusy = true;
+
+  const btn = document.getElementById('visit-btn');
+  const statusText = document.getElementById('status-text');
+  btn.disabled = true;
+  btn.textContent = '⌛ КЛОД ДУМАЕТ...';
+  statusText.textContent = 'Клод входит в мир...';
+
+  // Animate agent moving toward fire
+  animateAgentToFire();
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        system: AGENT_PROMPT,
+        messages: [{ role: 'user', content: buildContext() }]
+      })
+    });
+
+    const data = await response.json();
+    const raw  = data.content?.find(b => b.type === 'text')?.text || '{}';
+    const decision = JSON.parse(raw.replace(/```json|```/g, '').trim());
+
+    // Apply state changes
+    applyDecision(decision);
+
+  } catch(e) {
+    console.warn('Claude API error:', e);
+    // Fallback: show that API isn't connected yet
+    statusText.textContent = 'API не подключён — запусти через Cowork';
+    addEntry({
+      type: 'action',
+      text: '⚠️ Для настоящего визита нужен прокси. Сейчас агент работает из Cowork.'
+    });
+  }
+
+  agentBusy = false;
+  btn.disabled = false;
+  btn.textContent = '▶ ВИЗИТ АГЕНТА';
+  statusText.textContent = 'Клод у костра';
+}
+
+function applyDecision(d) {
+  const inv = state.inv;
+
+  // Resources
+  if (d.wood_delta)     inv.wood     = Math.max(0, inv.wood     + (d.wood_delta || 0));
+  if (d.fish_delta)     inv.fish     = Math.max(0, inv.fish     + (d.fish_delta || 0));
+  if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + (d.mushroom_delta || 0));
+  if (d.herb_delta)     inv.herb     = Math.max(0, inv.herb     + (d.herb_delta || 0));
+  if (d.made_rod)       inv.rod = 1;
+  if (d.lit_fire && inv.wood >= 2) {
+    state.fire = true; state.fireWood = 3;
+    inv.wood -= 2;
+  }
+
+  // Diary entries
+  const actions = Array.isArray(d.actions) ? d.actions : [];
+  actions.forEach(a => addEntry({ type: 'action', text: a }));
+  if (d.thought) addEntry({ type: 'thought', text: d.thought });
+  if (d.wish)    addEntry({ type: 'wish',    text: d.wish });
+
+  updateResources();
+  document.getElementById('status-text').textContent = 'Клод у костра';
+}
+
+// ── Animate agent walking toward campfire ──────────────────
+function animateAgentToFire() {
+  const agent = document.getElementById('agent-figure');
+  agent.style.transition = 'transform 2s ease-in-out';
+  agent.style.transform = 'translate(60px, 18px)';
+  setTimeout(() => {
+    agent.style.transition = 'transform 3s ease-in-out';
+    agent.style.transform  = 'translate(0px, 0px)';
+  }, 5000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT & LOOP
+// ═══════════════════════════════════════════════════════════
+generateStars();
+updateClock();
+updateResources();
+
+// Initial entries
+addEntry({ type: 'event', text: 'Мир проснулся. Огонь ждёт.' });
+
+// Clock tick
+setInterval(updateClock, 10000);
+
+// ── Poll Supabase every 8s ────────────────────────────────
+let _lastDiaryLen = 0;
+
+async function pollFiles() {
+  try {
+    // Load state from Supabase
+    const rows = await supaFetch('claude_world_state', '?id=eq.1&select=*');
+    if (rows && rows[0]) {
+      const s = rows[0];
+      state.day      = s.day      ?? state.day;
+      state.weather  = s.weather  ?? state.weather;
+      state.fire     = s.fire     ?? state.fire;
+      state.fireWood = s.fire_wood ?? state.fireWood;
+      state.inv.wood     = s.inv_wood     ?? state.inv.wood;
+      state.inv.fish     = s.inv_fish     ?? state.inv.fish;
+      state.inv.mushroom = s.inv_mushroom ?? state.inv.mushroom;
+      state.inv.herb     = s.inv_herb     ?? state.inv.herb;
+      state.inv.rod      = s.inv_rod      ?? state.inv.rod;
+      state.cellar.fish     = s.cellar_fish     ?? state.cellar.fish;
+      state.cellar.mushroom = s.cellar_mushroom ?? state.cellar.mushroom;
+      updateResources();
+      updateClock();
+      const flames = document.getElementById('flames');
+      const glow   = document.getElementById('fire-glow');
+      if (flames) flames.style.opacity = state.fire ? '1' : '0';
+      if (glow)   glow.style.opacity   = state.fire ? '0.7' : '0.05';
+    }
+  } catch(e) { console.warn('state poll failed', e); }
+
+  try {
+    // Load diary from Supabase (newest first)
+    const entries = await supaFetch('claude_world_diary', '?select=*&order=id.desc&limit=80');
+    if (entries && entries.length !== _lastDiaryLen) {
+      _lastDiaryLen = entries.length;
+      const existingTexts = new Set(state.entries.map(e => e.text + e.time));
+      const newOnes = entries.filter(e => !existingTexts.has(e.text + e.time));
+      if (newOnes.length > 0) {
+        state.entries = [...newOnes, ...state.entries].slice(0, 80);
+        renderDiary();
+        document.getElementById('status-text').textContent = 'Клод только что был здесь';
+        setTimeout(() => {
+          document.getElementById('status-text').textContent = 'Клод у костра';
+        }, 8000);
+      }
+    }
+  } catch(e) { console.warn('diary poll failed', e); }
+}
+
+setInterval(pollFiles, 8000);
+pollFiles(); // immediate first check
+
+// Fire simulation (local only when not synced from file)
+setInterval(() => {
+  if (state.fire) {
+    state.fireWood -= 0.02;
+    if (state.fireWood <= 0) {
+      state.fire = false;
+      addEntry({ type: 'event', text: 'Костёр догорел.' });
+      const flames = document.getElementById('flames');
+      const glow   = document.getElementById('fire-glow');
+      if (flames) flames.style.opacity = '0';
+      if (glow)   glow.style.opacity   = '0.05';
+    }
+  }
+}, 60000);
+
+// Update clock immediately
+updateClock();
+updateNightElements(getPhase(getMSK().getHours()).amb);
+</script>
+</body>
+</html>
