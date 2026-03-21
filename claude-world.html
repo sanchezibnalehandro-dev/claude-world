@@ -116,22 +116,40 @@ body {
   100% { transform: translate(var(--smx,-10px), -80px) scale(1.8); opacity: 0; }
 }
 
-/* ─── AGENT ─────────────────────────────────────────────── */
-#agent-figure {
-  animation: breathe 4s ease-in-out infinite alternate;
-  transform-origin: center bottom;
+/* ─── AGENT POSES ─────────────────────────────────────────── */
+#pose-sitting {
+  animation: sitBreathe 4s ease-in-out infinite alternate;
 }
-@keyframes breathe {
+@keyframes sitBreathe {
   from { transform: translateY(0); }
   to   { transform: translateY(-2px); }
 }
-#agent-cloak {
-  animation: cloakSway 5s ease-in-out infinite alternate;
-  transform-origin: center top;
+#arm-toward-fire {
+  animation: armWarm 3s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: left center;
 }
-@keyframes cloakSway {
-  from { transform: skewX(-0.5deg); }
-  to   { transform: skewX(1deg); }
+@keyframes armWarm {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-6deg); }
+}
+#chop-arms {
+  animation: chopSwing 0.45s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes chopSwing {
+  from { transform: rotate(-12deg) translateY(0); }
+  to   { transform: rotate(8deg) translateY(-4px); }
+}
+#fish-bobber {
+  animation: bobberFloat 1.6s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center center;
+}
+@keyframes bobberFloat {
+  from { transform: translateY(0); }
+  to   { transform: translateY(4px); }
 }
 
 /* ─── MOON ──────────────────────────────────────────────── */
@@ -651,24 +669,128 @@ body {
 </g>
 
 <!-- ── AGENT ──────────────────────────────────────────────── -->
-<g id="agent-figure" transform="translate(520,437)">
-  <ellipse cx="0" cy="28" rx="16" ry="5" fill="#000" opacity="0.4"/>
-  <g id="agent-cloak">
-    <path d="M-12,28 Q-14,10 -8,-2 Q0,-10 8,-2 Q14,10 12,28 Z" fill="#2a4028"/>
-    <path d="M-12,28 Q-10,18 -6,8 L-8,-2 Q-4,-6 0,-8 Q4,-6 8,-2 L6,8 Q10,18 12,28 Z" fill="#304830"/>
+<!-- ── CLAUDE — мультяшный персонаж с тремя позами ──────────── -->
+<g id="agent-figure">
+
+  <!-- ── ПОЗА: СИДИТ У КОСТРА (по умолчанию) ────────────── -->
+  <g id="pose-sitting">
+    <ellipse cx="504" cy="469" rx="23" ry="5" fill="#000" opacity="0.2"/>
+    <!-- скрещенные ноги -->
+    <path d="M498,463 Q481,467 475,473 Q481,477 491,472 Q496,467 498,463 Z" fill="#2c4821"/>
+    <path d="M512,463 Q529,467 535,473 Q529,477 519,472 Q514,467 512,463 Z" fill="#2c4821"/>
+    <!-- ряса/тело -->
+    <path d="M491,445 Q487,456 490,463 Q505,467 520,463 Q523,456 519,445 Z" fill="#2c4821"/>
+    <path d="M496,445 Q493,455 496,463 Q505,466 514,463 Q517,455 514,445 Z" fill="#3a5e2e" opacity="0.6"/>
+    <!-- шея -->
+    <rect x="501" y="441" width="8" height="7" rx="3" fill="#c8a068"/>
+    <!-- голова -->
+    <circle cx="505" cy="431" r="13" fill="#d4a870"/>
+    <ellipse cx="505" cy="440" rx="7" ry="4" fill="#b88850" opacity="0.4"/>
+    <!-- волосы -->
+    <path d="M492,427 Q495,415 505,412 Q515,415 518,427 Q513,419 505,417 Q497,419 492,427 Z" fill="#3a2010"/>
+    <!-- шляпа — поля -->
+    <ellipse cx="505" cy="420" rx="17" ry="4.5" fill="#181008"/>
+    <!-- шляпа — тулья -->
+    <path d="M496,421 Q498,402 505,399 Q512,402 514,421 Z" fill="#181008"/>
+    <!-- бандана на шляпе -->
+    <rect x="497" y="415" width="16" height="2.5" rx="1" fill="#4a3018"/>
+    <!-- глаза — полузакрыты, задумчив -->
+    <path d="M499,430 Q501,428 503,430" stroke="#3a2010" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M507,430 Q509,428 511,430" stroke="#3a2010" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- румяные щёки от костра -->
+    <ellipse cx="499" cy="434" rx="3.5" ry="2" fill="#e87850" opacity="0.22"/>
+    <ellipse cx="511" cy="434" rx="3.5" ry="2" fill="#e87850" opacity="0.22"/>
+    <!-- улыбка -->
+    <path d="M501,436 Q505,439 509,436" stroke="#9a5828" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    <!-- левая рука — на колене -->
+    <line x1="491" y1="449" x2="481" y2="458" stroke="#c09860" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="479" cy="459" r="4.5" fill="#d4a870"/>
+    <!-- правая рука — тянется к теплу костра -->
+    <line x1="519" y1="449" x2="534" y2="454" stroke="#c09860" stroke-width="5" stroke-linecap="round" id="arm-toward-fire"/>
+    <circle cx="536" cy="455" r="4.5" fill="#d4a870"/>
   </g>
-  <circle cx="0" cy="-6" r="9" fill="#c8a070"/>
-  <path d="M-6,0 Q0,6 6,0 Q4,10 0,12 Q-4,10 -6,0 Z" fill="#a88858" opacity="0.8"/>
-  <ellipse cx="0" cy="-12" rx="14" ry="4" fill="#2a2010"/>
-  <path d="M-8,-12 Q0,-24 8,-12" fill="#1e180c"/>
-  <ellipse cx="0" cy="-12" rx="14" ry="4" fill="none" stroke="#3a3020" stroke-width="0.8"/>
-  <circle cx="-3" cy="-7" r="1.5" fill="#180e04"/>
-  <circle cx="3"  cy="-7" r="1.5" fill="#180e04"/>
-  <circle cx="-2.5" cy="-7.5" r="0.6" fill="#fff" opacity="0.5"/>
-  <circle cx="3.5"  cy="-7.5" r="0.6" fill="#fff" opacity="0.5"/>
-  <line x1="14" y1="-20" x2="16" y2="30" stroke="#6a4820" stroke-width="2.5" stroke-linecap="round"/>
-  <circle cx="15" cy="-22" r="3" fill="#8a7040"/>
-  <circle cx="15" cy="-22" r="2" fill="#a09050"/>
+
+  <!-- ── ПОЗА: РУБИТ ДРОВА (в лесу) ─────────────────────── -->
+  <g id="pose-chopping" style="display:none">
+    <ellipse cx="360" cy="462" rx="16" ry="4" fill="#000" opacity="0.2"/>
+    <!-- ноги расставлены -->
+    <path d="M354,450 Q351,458 349,462 L356,462 Q357,457 358,450 Z" fill="#2c4821"/>
+    <path d="M366,450 Q369,458 371,462 L364,462 Q363,457 362,450 Z" fill="#2c4821"/>
+    <!-- тело -->
+    <path d="M350,432 Q348,444 351,450 Q360,454 369,450 Q372,444 370,432 Z" fill="#2c4821"/>
+    <path d="M354,432 Q352,443 355,450 Q360,453 365,450 Q368,443 366,432 Z" fill="#3a5e2e" opacity="0.6"/>
+    <rect x="357" y="429" width="8" height="6" rx="3" fill="#c8a068"/>
+    <!-- голова чуть наклонена от усилия -->
+    <g transform="translate(360,421) rotate(-8)">
+      <circle cx="0" cy="0" r="12" fill="#d4a870"/>
+      <ellipse cx="0" cy="8" rx="6" ry="3.5" fill="#b88850" opacity="0.4"/>
+      <path d="M-12,-4 Q-10,-15 0,-17 Q10,-15 12,-4 Q7,-10 0,-12 Q-7,-10 -12,-4 Z" fill="#3a2010"/>
+      <ellipse cx="0" cy="-12" rx="17" ry="4.5" fill="#181008"/>
+      <path d="M-8,-12 Q-6,-31 0,-34 Q6,-31 8,-12 Z" fill="#181008"/>
+      <rect x="-8" y="-17" width="16" height="2.5" rx="1" fill="#4a3018"/>
+      <!-- сосредоточенный взгляд -->
+      <ellipse cx="-4" cy="-1" rx="2.2" ry="2" fill="#2a1a08"/>
+      <ellipse cx="4"  cy="-1" rx="2.2" ry="2" fill="#2a1a08"/>
+      <circle cx="-3" cy="-1.8" r="0.7" fill="white" opacity="0.9"/>
+      <circle cx="5"  cy="-1.8" r="0.7" fill="white" opacity="0.9"/>
+      <path d="M-3,5 Q0,4 3,5" stroke="#9a5828" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    </g>
+    <!-- руки с топором -->
+    <g id="chop-arms">
+      <line x1="350" y1="436" x2="338" y2="420" stroke="#c09860" stroke-width="5" stroke-linecap="round"/>
+      <line x1="370" y1="436" x2="382" y2="420" stroke="#c09860" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="337" cy="418" r="4" fill="#d4a870"/>
+      <circle cx="383" cy="418" r="4" fill="#d4a870"/>
+      <!-- рукоять топора -->
+      <line x1="337" y1="418" x2="383" y2="418" stroke="#7a5020" stroke-width="3.5" stroke-linecap="round"/>
+      <!-- голова топора -->
+      <path d="M378,412 Q390,417 386,424 Q380,421 378,418 Z" fill="#909098"/>
+      <path d="M378,412 Q375,418 378,424 Q380,421 378,418 Z" fill="#b0b0b8"/>
+    </g>
+  </g>
+
+  <!-- ── ПОЗА: РЫБАЧИТ (у реки) ──────────────────────────── -->
+  <g id="pose-fishing" style="display:none">
+    <ellipse cx="718" cy="469" rx="22" ry="5" fill="#000" opacity="0.2"/>
+    <!-- брёвнышко чтобы сидеть -->
+    <ellipse cx="718" cy="467" rx="23" ry="7" fill="#3a2810"/>
+    <ellipse cx="718" cy="463" rx="23" ry="7" fill="#4a3820"/>
+    <path d="M695,463 Q705,455 718,453 Q731,455 741,463 Q731,459 718,457 Q705,459 695,463 Z" fill="#5a4830"/>
+    <!-- ноги свисают -->
+    <path d="M711,463 Q706,470 704,477 Q710,479 714,471 Q713,467 713,464 Z" fill="#2c4821"/>
+    <path d="M725,463 Q730,470 732,477 Q726,479 722,471 Q722,467 723,464 Z" fill="#2c4821"/>
+    <!-- тело -->
+    <path d="M706,444 Q703,455 706,463 Q718,467 730,463 Q733,455 730,444 Z" fill="#2c4821"/>
+    <path d="M711,444 Q709,455 712,463 Q718,466 724,463 Q727,455 725,444 Z" fill="#3a5e2e" opacity="0.6"/>
+    <rect x="715" y="441" width="8" height="6" rx="3" fill="#c8a068"/>
+    <!-- голова — смотрит на воду -->
+    <circle cx="718" cy="430" r="13" fill="#d4a870"/>
+    <ellipse cx="718" cy="439" rx="7" ry="4" fill="#b88850" opacity="0.4"/>
+    <path d="M705,426 Q708,414 718,411 Q728,414 731,426 Q726,418 718,416 Q710,418 705,426 Z" fill="#3a2010"/>
+    <ellipse cx="718" cy="419" rx="17" ry="4.5" fill="#181008"/>
+    <path d="M709,420 Q711,401 718,398 Q725,401 727,420 Z" fill="#181008"/>
+    <rect x="710" y="414" width="16" height="2.5" rx="1" fill="#4a3018"/>
+    <!-- глаза — смотрят вниз, умиротворённо -->
+    <path d="M712,429 Q714,427 716,429" stroke="#3a2010" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M720,429 Q722,427 724,429" stroke="#3a2010" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M715,435 Q718,438 721,435" stroke="#9a5828" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    <!-- левая рука — отдыхает -->
+    <line x1="706" y1="449" x2="698" y2="457" stroke="#c09860" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="696" cy="458" r="4.5" fill="#d4a870"/>
+    <!-- правая рука — держит удочку -->
+    <line x1="730" y1="449" x2="742" y2="444" stroke="#c09860" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="744" cy="443" r="4.5" fill="#d4a870"/>
+    <!-- удочка -->
+    <line x1="744" y1="443" x2="778" y2="427" stroke="#7a5020" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- леска -->
+    <line x1="778" y1="427" x2="775" y2="465" stroke="#c8d4e0" stroke-width="0.8" opacity="0.7"/>
+    <!-- поплавок -->
+    <g id="fish-bobber">
+      <ellipse cx="775" cy="469" rx="3.5" ry="5" fill="#e02020" opacity="0.85"/>
+      <ellipse cx="775" cy="465" rx="3.5" ry="2.5" fill="white" opacity="0.9"/>
+    </g>
+  </g>
+
 </g>
 
 <!-- ── WELL — tucked left of house in clearing ────────────── -->
@@ -1083,15 +1205,26 @@ function applyDecision(d) {
 }
 
 // ── Animate agent walking toward campfire ──────────────────
-function animateAgentToFire() {
-  const agent = document.getElementById('agent-figure');
-  agent.style.transition = 'transform 2s ease-in-out';
-  agent.style.transform = 'translate(60px, 18px)';
-  setTimeout(() => {
-    agent.style.transition = 'transform 3s ease-in-out';
-    agent.style.transform  = 'translate(0px, 0px)';
-  }, 5000);
+// ── Pose switching ───────────────────────────────────────────
+let _poseResetTimer = null;
+
+function setPose(name) {
+  ['sitting', 'chopping', 'fishing'].forEach(p => {
+    const el = document.getElementById('pose-' + p);
+    if (el) el.style.display = (p === name) ? '' : 'none';
+  });
 }
+
+function inferPose(entries) {
+  const lastAction = entries.find(e => e.type === 'action');
+  if (!lastAction) return 'sitting';
+  const t = (lastAction.text || '').toLowerCase();
+  if (t.includes('рубил') || t.includes('нарубил') || t.includes('дров') || t.includes('топор')) return 'chopping';
+  if (t.includes('рыб') || t.includes('удочк') || t.includes('поймал') || t.includes('клевало') || t.includes('рыбачил')) return 'fishing';
+  return 'sitting';
+}
+
+function animateAgentToFire() { /* заменено позами */ }
 
 // ═══════════════════════════════════════════════════════════
 //  INIT & LOOP
@@ -1146,9 +1279,14 @@ async function pollFiles() {
         state.entries = [...newOnes, ...state.entries].slice(0, 80);
         renderDiary();
         document.getElementById('status-text').textContent = 'Клод только что был здесь';
-        setTimeout(() => {
+        // Сменить позу по последнему действию, потом вернуть к костру
+        const pose = inferPose(entries);
+        setPose(pose);
+        if (_poseResetTimer) clearTimeout(_poseResetTimer);
+        _poseResetTimer = setTimeout(() => {
+          setPose('sitting');
           document.getElementById('status-text').textContent = 'Клод у костра';
-        }, 8000);
+        }, 30000);
       }
     }
   } catch(e) { console.warn('diary poll failed', e); }
