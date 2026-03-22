@@ -532,13 +532,19 @@ function loadCharacter() {
       model.position.set(-2, groundY, 1.8);
 
       model.traverse(child => {
-        if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          // Ensure PBR materials stay visible under our lighting
+          if (child.material) {
+            child.material.roughness = 0.8;
+            child.material.metalness = 0.1;
+            child.material.needsUpdate = true;
+          }
+        }
       });
 
-      // Hide until the first animation frame so T-pose never flashes on screen
-      model.visible = false;
-
-      // Only remove box char AFTER GLB is ready to replace it
+      // Only remove box char AFTER GLB is fully ready
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
       characterGroup = model;
       characterGroup.lookAt(0, 0.5, 0);
@@ -547,12 +553,10 @@ function loadCharacter() {
       mixer = new THREE.AnimationMixer(model);
       if (gltf.animations.length > 0) mixer.clipAction(gltf.animations[0]).play();
       animCache['sitting'] = gltf;
-
-      // Show after two rAF ticks — animation is already running by then
-      requestAnimationFrame(() => requestAnimationFrame(() => { model.visible = true; }));
+      console.warn('GLB loaded OK, scale=' + autoScale.toFixed(4));
     },
     null,
-    (err) => { console.info('GLB not yet available, using box character.', err); }
+    (err) => { console.warn('GLB not available, using box character:', err.message || err); }
   );
 }
 
