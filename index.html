@@ -198,6 +198,22 @@ let characterGroup, mixer;
 const animCache = {};
 const FRUSTUM = 11;
 
+// ── Character constants ──────────────────────────────────────
+// Mixamo built-in chars export in cm → scale 0.01 = metres.
+// +10% from previous working size:
+const CHAR_SCALE = 0.011;
+// Ground is at world Y = 0. Each animation needs a different Y
+// offset so the contact point (butt/feet/body) aligns with ground.
+// Tweak ANIM_GROUND_Y if a pose floats or clips through the floor.
+const ANIM_GROUND_Y = {
+  sitting:  -0.42,  // butt on ground (sitting cross-legged)
+  sleeping: -0.10,  // body flat on ground
+  fishing:   0.00,  // feet on ground (standing)
+  idle:      0.00,  // feet on ground
+};
+// XZ position of character in the scene
+const CHAR_X = -2, CHAR_Z = 1.8;
+
 // ═══════════════════════════════════════════════════════════
 //  INIT THREE.JS
 // ═══════════════════════════════════════════════════════════
@@ -499,43 +515,40 @@ function buildBoxCharacter() {
   scene.add(characterGroup);
 }
 
+function applyFBXMaterials(fbx) {
+  fbx.traverse(child => {
+    if (child.isMesh) {
+      child.castShadow    = true;
+      child.receiveShadow = true;
+      child.frustumCulled = false; // r128 SkinnedMesh has zero CPU bbox
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(mat => { if (mat) mat.skinning = true; });
+    }
+  });
+}
+
 function loadCharacter() {
-  // Show box char immediately as fallback
-  buildBoxCharacter();
+  // Do NOT show box character — it's the "inflatable" that users see briefly.
+  // Just wait for FBX silently. Only fall back to box if FBX truly fails.
 
   const loading = document.getElementById('loading');
   if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
 
   if (typeof THREE.FBXLoader === 'undefined') {
     console.warn('FBXLoader not available, using box character');
+    buildBoxCharacter();
     return;
   }
 
   const loader = new THREE.FBXLoader();
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
-      // Mixamo built-in characters export in centimetres (170 units = 170cm)
-      fbx.scale.setScalar(0.018); // slightly larger than 0.01 so character is visible
+      fbx.scale.setScalar(CHAR_SCALE);
+      fbx.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
+      fbx.rotation.y = Math.PI * 0.25; // face toward campfire
 
-      // Sitting idle animation: the T-pose bbox feet are at ~y=0 but during
-      // the sitting animation the hips drop lower. Shift down so butt
-      // appears to rest on ground, not float. -0.5 * scale * ~50cm seat height
-      fbx.position.set(-2, -0.35, 1.8);
-      fbx.rotation.y = Math.PI * 0.25;
+      applyFBXMaterials(fbx);
 
-      fbx.traverse(child => {
-        if (child.isMesh) {
-          child.castShadow    = true;
-          child.receiveShadow = true;
-          child.frustumCulled = false;
-          // Use FBXLoader's own materials (Alpha_Body_MAT, Alpha_Joints etc.)
-          // They have the correct DiffuseColor per mesh part. Just enable skinning.
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach(mat => { if (mat) mat.skinning = true; });
-        }
-      });
-
-      // Replace box char only after FBX is ready
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
       characterGroup = fbx;
       scene.add(characterGroup);
@@ -548,7 +561,10 @@ function loadCharacter() {
       console.warn('FBX loaded OK, animations:', fbx.animations.length);
     },
     null,
-    (err) => { console.warn('FBX not available, using box character:', err.message || err); }
+    (err) => {
+      console.warn('FBX failed, using box character:', err.message || err);
+      buildBoxCharacter();
+    }
   );
 }
 
