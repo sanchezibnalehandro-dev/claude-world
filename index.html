@@ -206,7 +206,7 @@ const CHAR_SCALE = 0.011;
 // offset so the contact point (butt/feet/body) aligns with ground.
 // Tweak ANIM_GROUND_Y if a pose floats or clips through the floor.
 const ANIM_GROUND_Y = {
-  sitting:  -0.35,  // butt on ground: animation natural Y≈0 + visual float 0.35
+  sitting:  -0.15,  // -0.35 was underground, -0.15 is midpoint toward natural Y=0
   sleeping: -0.10,  // body flat on ground
   fishing:   0.00,  // feet on ground (standing)
   idle:      0.00,  // feet on ground
@@ -313,26 +313,29 @@ function buildScene() {
   scene.add(ground);
 
   // ── River ────────────────────────────────────────────────
-  // River at x=7, width=3.8 → spans x=5.1 to x=8.9
-  // Banks placed COMPLETELY OUTSIDE river x-range → zero X overlap → no green on water
-  const riverMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.8, 60),
-    new THREE.MeshLambertMaterial({ color: 0x0d2235 })
+  // PROPER solution: one wide bank plane + water on top via polygonOffset.
+  // polygonOffset pushes water toward camera at GPU level → always on top.
+  // Zero hacks, zero z-fighting regardless of camera angle.
+  const bankPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(8, 60),
+    new THREE.MeshLambertMaterial({ color: 0x1a2c10 })
   );
-  riverMesh.rotation.x = -Math.PI / 2;
-  riverMesh.position.set(7, 0.02, 0);
-  scene.add(riverMesh);
-  // Left bank: x=4.2, width=1.6 → spans 3.4–5.0 (ends before river starts at 5.1)
-  // Right bank: x=9.8, width=1.6 → spans 9.0–10.6 (starts after river ends at 8.9)
-  [{x: 4.2}, {x: 9.8}].forEach(({x}) => {
-    const bank = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.6, 60),
-      new THREE.MeshLambertMaterial({ color: 0x1a2c10 })
-    );
-    bank.rotation.x = -Math.PI / 2;
-    bank.position.set(x, 0.01, 0);
-    scene.add(bank);
-  });
+  bankPlane.rotation.x = -Math.PI / 2;
+  bankPlane.position.set(7, 0.01, 0);
+  scene.add(bankPlane);
+
+  const waterPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.8, 60),
+    new THREE.MeshLambertMaterial({
+      color: 0x0d2235,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    })
+  );
+  waterPlane.rotation.x = -Math.PI / 2;
+  waterPlane.position.set(7, 0.01, 0);
+  scene.add(waterPlane);
 
   // ── Trees ────────────────────────────────────────────────
   [
