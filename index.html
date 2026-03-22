@@ -162,7 +162,8 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/inflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 //  SUPABASE
@@ -499,62 +500,53 @@ function buildBoxCharacter() {
 }
 
 function loadCharacter() {
-  // Show box char immediately
+  // Show box char immediately as fallback
   buildBoxCharacter();
 
-  // Hide loading spinner
   const loading = document.getElementById('loading');
   if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
 
-  // Try to load GLB on top — replace box char if successful
-  if (typeof THREE.GLTFLoader === 'undefined') return;
-  const loader = new THREE.GLTFLoader();
-  loader.load('/models/sitting-idle.glb',
-    (gltf) => {
-      const model = gltf.scene;
+  if (typeof THREE.FBXLoader === 'undefined') {
+    console.warn('FBXLoader not available, using box character');
+    return;
+  }
 
-      // Fixed scale for Mixamo cm exports (170 units → 1.7 Three.js units)
-      model.scale.setScalar(0.01);
-      // Always place on ground at y=0 — skip bounding box to avoid edge cases
-      model.position.set(-2, 0, 1.8);
+  const loader = new THREE.FBXLoader();
+  loader.load('/models/sitting-idle.fbx',
+    (fbx) => {
+      // Mixamo FBX is in cm — scale to metres
+      fbx.scale.setScalar(0.01);
+      fbx.position.set(-2, 0, 1.8);
 
-      let meshCount = 0;
-      model.traverse(child => {
+      fbx.traverse(child => {
         if (child.isMesh) {
-          meshCount++;
-          child.castShadow = true;
+          child.castShadow    = true;
           child.receiveShadow = true;
-          // SkinnedMesh bounding box is zero on CPU side (GPU moves vertices).
-          // Must disable frustum culling or Three.js skips rendering entirely.
-          child.frustumCulled = false;
+          child.frustumCulled = false;  // SkinnedMesh has zero CPU bounding box
+          // Replace PBR material with Lambert so it renders under our lighting
           child.material = new THREE.MeshLambertMaterial({
-            color:    0xff8c00,
-            emissive: new THREE.Color(0x331a00),
+            map:      child.material && child.material.map ? child.material.map : null,
+            color:    child.material && child.material.map ? 0xffffff : 0xc8a065,
             skinning: child.isSkinnedMesh,
           });
         }
       });
 
-      // Only remove box char AFTER GLB is fully ready
+      // Replace box char only after FBX is ready
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
-      characterGroup = model;
+      characterGroup = fbx;
       characterGroup.lookAt(0, 0.5, 0);
       scene.add(characterGroup);
 
-      // Log exact world position after adding to scene
-      scene.updateMatrixWorld();
-      const dbBox = new THREE.Box3().setFromObject(characterGroup);
-      console.warn('GLB OK | meshes:', meshCount,
-        '| pos:', model.position.toArray().map(v=>v.toFixed(2)),
-        '| worldBox min:', dbBox.min.toArray().map(v=>v.toFixed(2)),
-        '| max:', dbBox.max.toArray().map(v=>v.toFixed(2)));
-
-      mixer = new THREE.AnimationMixer(model);
-      if (gltf.animations.length > 0) mixer.clipAction(gltf.animations[0]).play();
-      animCache['sitting'] = gltf;
+      mixer = new THREE.AnimationMixer(fbx);
+      if (fbx.animations && fbx.animations.length > 0) {
+        mixer.clipAction(fbx.animations[0]).play();
+      }
+      animCache['sitting'] = { animations: fbx.animations };
+      console.warn('FBX loaded OK, animations:', fbx.animations.length);
     },
     null,
-    (err) => { console.warn('GLB not available, using box character:', err.message || err); }
+    (err) => { console.warn('FBX not available, using box character:', err.message || err); }
   );
 }
 
@@ -565,7 +557,7 @@ async function switchAnimation(name, url, targetPos, targetLookAt) {
 
   if (animCache[name]) {
     const clips = animCache[name].animations;
-    if (clips.length > 0) {
+    if (clips && clips.length > 0) {
       mixer.stopAllAction();
       mixer.clipAction(clips[0]).reset().play();
     }
