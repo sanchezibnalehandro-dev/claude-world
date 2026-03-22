@@ -520,25 +520,15 @@ function loadCharacter() {
       fbx.position.set(-2, 0, 1.8);
       fbx.rotation.y = Math.PI * 0.25; // face toward campfire
 
-      // Load the original diffuse texture from the source 3D model.
-      // Mixamo preserves UV coordinates → texture_diffuse.png maps correctly
-      // onto the rigged/animated FBX mesh.
-      const diffuseTex = new THREE.TextureLoader().load('/models/texture_diffuse.png');
-      diffuseTex.encoding = THREE.sRGBEncoding;
-      diffuseTex.flipY = false; // FBX UVs are not flipped
-
       fbx.traverse(child => {
         if (child.isMesh) {
           child.castShadow    = true;
           child.receiveShadow = true;
           child.frustumCulled = false;
-          // Apply the character's original skin+clothing texture
+          // Use FBXLoader's own materials (Alpha_Body_MAT, Alpha_Joints etc.)
+          // They have the correct DiffuseColor per mesh part. Just enable skinning.
           const mats = Array.isArray(child.material) ? child.material : [child.material];
-          const newMats = mats.map(() => new THREE.MeshLambertMaterial({
-            map:      diffuseTex,
-            skinning: true,
-          }));
-          child.material = newMats.length === 1 ? newMats[0] : newMats;
+          mats.forEach(mat => { if (mat) mat.skinning = true; });
         }
       });
 
