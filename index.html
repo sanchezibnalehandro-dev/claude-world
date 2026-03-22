@@ -313,28 +313,22 @@ function buildScene() {
   scene.add(ground);
 
   // ── River ────────────────────────────────────────────────
-  // PROPER solution: one wide bank plane + water on top via polygonOffset.
-  // polygonOffset pushes water toward camera at GPU level → always on top.
-  // Zero hacks, zero z-fighting regardless of camera angle.
+  // Bank at Y=0.00, water at Y=0.02 — real depth difference,
+  // zero z-fighting, no polygonOffset needed.
   const bankPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(8, 60),
     new THREE.MeshLambertMaterial({ color: 0x1a2c10 })
   );
   bankPlane.rotation.x = -Math.PI / 2;
-  bankPlane.position.set(7, 0.01, 0);
+  bankPlane.position.set(7, 0.00, 0);
   scene.add(bankPlane);
 
   const waterPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(3.8, 60),
-    new THREE.MeshLambertMaterial({
-      color: 0x0d2235,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
-    })
+    new THREE.MeshLambertMaterial({ color: 0x0d2235 })
   );
   waterPlane.rotation.x = -Math.PI / 2;
-  waterPlane.position.set(7, 0.01, 0);
+  waterPlane.position.set(7, 0.02, 0);
   scene.add(waterPlane);
 
   // ── Trees ────────────────────────────────────────────────
