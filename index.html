@@ -213,6 +213,8 @@ function initThree() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0x060412, 1);
+  // Required for correct GLB/PBR material colours (sRGB encoding)
+  renderer.outputEncoding = THREE.sRGBEncoding;
   container.appendChild(renderer.domElement);
 
   scene = new THREE.Scene();
@@ -512,15 +514,22 @@ function loadCharacter() {
       const model = gltf.scene;
 
       // Auto-scale: normalise to ~1.7 units tall regardless of export units (cm vs m)
+      // Box3 on an unattached object may be empty — guard against that
       const tmpBox = new THREE.Box3().setFromObject(model);
-      const tmpSz  = new THREE.Vector3();
-      tmpBox.getSize(tmpSz);
-      const autoScale = tmpSz.y > 0.01 ? 1.7 / tmpSz.y : 0.01;
+      let autoScale = 0.01; // safe default for Mixamo cm exports
+      if (!tmpBox.isEmpty()) {
+        const tmpSz = tmpBox.getSize(new THREE.Vector3());
+        if (tmpSz.y > 0.01) autoScale = 1.7 / tmpSz.y;
+      }
       model.scale.setScalar(autoScale);
+      // Force matrix recalc so ground-offset bounding box uses the new scale
+      model.updateMatrixWorld(true);
 
-      // Re-measure after scale so we can sit the model exactly on the ground
+      // Sit the model exactly on y=0
       const groundBox = new THREE.Box3().setFromObject(model);
-      model.position.set(-2, -groundBox.min.y, 1.8);
+      const groundY = (!groundBox.isEmpty() && isFinite(groundBox.min.y))
+                      ? -groundBox.min.y : 0;
+      model.position.set(-2, groundY, 1.8);
 
       model.traverse(child => {
         if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
