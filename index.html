@@ -225,12 +225,12 @@ let ambientLight, moonLight, fireLight;
 let starParticles, flameGroup;
 let characterGroup, mixer;
 
-// ── ИЗМЕНЕНО: Хранилище ЦЕЛЫХ загруженных персонажей ──
 const loadedModels = {}; 
 
 const FRUSTUM = 11;
 const CHAR_SCALE = 0.011;
-const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing: 0.10, idle: 0.00 };
+// ── ДОБАВЛЕНА ПОЗА 'casting' ──
+const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, casting: 0.00, fishing_idle: 0.10, idle: 0.00 };
 const CHAR_X = -2, CHAR_Z = 1.8;
 
 // ═══════════════════════════════════════════════════════════
@@ -537,7 +537,6 @@ function applyFBXMaterials(fbx) {
   });
 }
 
-// ── ИЗМЕНЕНО: Загружаем стартовую фигурку (сидящего) целиком ──
 function loadCharacter() {
   const loading = document.getElementById('loading');
   if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
@@ -557,7 +556,6 @@ function loadCharacter() {
       const m = new THREE.AnimationMixer(fbx);
       if (fbx.animations.length > 0) m.clipAction(fbx.animations[0]).play();
 
-      // Сохраняем ЦЕЛУЮ фигурку в память
       loadedModels['sitting'] = { mesh: fbx, mixer: m };
 
       characterGroup = fbx;
@@ -575,9 +573,8 @@ function loadCharacter() {
   );
 }
 
-// ── ИЗМЕНЕНО: Меняем фигурки на сцене целиком! Никаких ломаных костей ──
-async function switchAnimation(name, url, targetPos, targetLookAt) {
-  // 1. Проверяем, скачана ли уже эта 3D-фигурка
+// ── ИЗМЕНЕНО: Добавлена логика playOnce и onFinish для цепочек анимаций ──
+async function switchAnimation(name, url, targetPos, targetLookAt, playOnce = false, onFinish = null) {
   if (!loadedModels[name]) {
     try {
       const loader = new THREE.FBXLoader();
@@ -587,9 +584,6 @@ async function switchAnimation(name, url, targetPos, targetLookAt) {
       applyFBXMaterials(fbx);
       
       const m = new THREE.AnimationMixer(fbx);
-      if (fbx.animations.length > 0) m.clipAction(fbx.animations[0]).play();
-      
-      // Сохраняем новую фигурку в память
       loadedModels[name] = { mesh: fbx, mixer: m };
     } catch(e) {
       console.warn('Ошибка загрузки FBX:', e);
@@ -597,22 +591,44 @@ async function switchAnimation(name, url, targetPos, targetLookAt) {
     }
   }
 
-  // 2. Убираем старого Клода со сцены (прячем)
   if (characterGroup) {
     scene.remove(characterGroup);
   }
 
-  // 3. Ставим нового Клода на сцену
   characterGroup = loadedModels[name].mesh;
   mixer = loadedModels[name].mixer;
   scene.add(characterGroup);
 
-  // 4. Двигаем и поворачиваем его куда надо
   if (targetPos)    characterGroup.position.set(...targetPos);
   if (targetLookAt) characterGroup.lookAt(...targetLookAt);
   
-  // Устанавливаем правильную высоту, чтобы он не проваливался под землю
   characterGroup.position.y = ANIM_GROUND_Y[name] !== undefined ? ANIM_GROUND_Y[name] : 0;
+
+  // Управление воспроизведением (один раз или бесконечно)
+  if (characterGroup.animations.length > 0) {
+    const clip = characterGroup.animations[0];
+    const action = mixer.clipAction(clip);
+    action.reset();
+
+    if (playOnce) {
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true; // Замираем на последнем кадре после взмаха
+    } else {
+      action.setLoop(THREE.LoopRepeat, Infinity); // Крутим бесконечно
+    }
+    
+    action.play();
+
+    // Если запросили выполнить функцию после окончания анимации
+    if (playOnce && onFinish) {
+      setTimeout(() => {
+        // Защита: проверяем, не нажал ли юзер что-то еще, пока шла анимация
+        if (characterGroup === loadedModels[name].mesh) {
+          onFinish();
+        }
+      }, clip.duration * 1000);
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -869,9 +885,26 @@ async function applyDecision(d) {
 // ═══════════════════════════════════════════════════════════
 let _poseResetTimer = null;
 
+// ── ИЗМЕНЕНО: Цепочка анимаций для рыбалки ──
 function setPose(name) {
   if (name === 'fishing') {
-    switchAnimation('fishing', '/models/Fishing Idle.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
+    // 1. Сначала проигрываем один раз файл "Casting Fishing Line.fbx"
+    switchAnimation(
+      'casting', 
+      '/models/Casting Fishing Line.fbx', 
+      [3.5, 0, 2.5], 
+      [7.5, 0, 5], 
+      true, // playOnce
+      () => {
+        // 2. И как только он закончит замах, переключаемся на зацикленное сидение
+        switchAnimation(
+          'fishing_idle', 
+          '/models/Fishing Idle.fbx', 
+          [3.5, 0, 2.5], 
+          [7.5, 0, 5]
+        );
+      }
+    );
   } else if (name === 'typing') {
     switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   } else if (name === 'sleeping') {
