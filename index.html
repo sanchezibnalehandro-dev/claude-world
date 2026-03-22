@@ -520,15 +520,30 @@ function loadCharacter() {
       fbx.position.set(-2, 0, 1.8);
       fbx.rotation.y = Math.PI * 0.25; // face toward campfire
 
+      // Palette: hermit robe colors — warm earthy tones for low-poly style
+      const HERMIT_COLORS = [
+        0x3d2a1a,  // 0 dark brown robe (primary)
+        0xc49060,  // 1 warm skin
+        0x5c3a20,  // 2 medium brown (belt/trim)
+        0x2a1a0e,  // 3 very dark brown (shadows/feet)
+        0xd4a870,  // 4 light skin (face/hands)
+        0x7a5030,  // 5 mid-brown
+      ];
+      let meshIdx = 0;
       fbx.traverse(child => {
         if (child.isMesh) {
           child.castShadow    = true;
           child.receiveShadow = true;
-          child.frustumCulled = false;  // SkinnedMesh has zero CPU bounding box in r128
-          // Keep Mixamo's original materials (they have textures embedded).
-          // FBXLoader doesn't always set skinning:true — add it manually.
+          child.frustumCulled = false;
+          // Mixamo FBX has no embedded textures — apply hermit palette instead.
+          // Multiple mesh parts get different earthy tones for low-poly depth.
           const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach(mat => { if (mat) mat.skinning = true; });
+          const newMats = mats.map(() => new THREE.MeshLambertMaterial({
+            color:   HERMIT_COLORS[meshIdx % HERMIT_COLORS.length],
+            skinning: true,
+          }));
+          child.material = newMats.length === 1 ? newMats[0] : newMats;
+          meshIdx++;
         }
       });
 
