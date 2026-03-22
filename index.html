@@ -513,39 +513,22 @@ function loadCharacter() {
     (gltf) => {
       const model = gltf.scene;
 
-      // Auto-scale: normalise to ~1.7 units tall regardless of export units (cm vs m)
-      // Box3 on an unattached object may be empty — guard against that
-      const tmpBox = new THREE.Box3().setFromObject(model);
-      let autoScale = 0.01; // safe default for Mixamo cm exports
-      if (!tmpBox.isEmpty()) {
-        const tmpSz = tmpBox.getSize(new THREE.Vector3());
-        if (tmpSz.y > 0.01) autoScale = 1.7 / tmpSz.y;
-      }
-      model.scale.setScalar(autoScale);
-      // Force matrix recalc so ground-offset bounding box uses the new scale
-      model.updateMatrixWorld(true);
+      // Fixed scale for Mixamo cm exports (170 units → 1.7 Three.js units)
+      model.scale.setScalar(0.01);
+      // Always place on ground at y=0 — skip bounding box to avoid edge cases
+      model.position.set(-2, 0, 1.8);
 
-      // Sit the model exactly on y=0
-      const groundBox = new THREE.Box3().setFromObject(model);
-      const groundY = (!groundBox.isEmpty() && isFinite(groundBox.min.y))
-                      ? -groundBox.min.y : 0;
-      model.position.set(-2, groundY, 1.8);
-
+      let meshCount = 0;
       model.traverse(child => {
         if (child.isMesh) {
+          meshCount++;
           child.castShadow = true;
           child.receiveShadow = true;
-          // PBR materials from Mixamo render black under Lambert-style lighting.
-          // Replace with MeshLambertMaterial, keeping the texture if one is embedded.
-          const orig = child.material;
-          const tex  = orig && orig.map ? orig.map : null;
-          const col  = (orig && orig.color) ? orig.color.clone()
-                                            : new THREE.Color(0xc8a065);
+          // Bright emissive Lambert so character is visible regardless of lighting
           child.material = new THREE.MeshLambertMaterial({
-            map:      tex,
-            color:    tex ? 0xffffff : col,
-            emissive: new THREE.Color(0x0a0806),
-            skinning: child.isSkinnedMesh,  // CRITICAL: must be true for bone deformation
+            color:    0xff8c00,           // bright orange — hard to miss
+            emissive: new THREE.Color(0x331a00), // faint glow
+            skinning: child.isSkinnedMesh,
           });
         }
       });
@@ -556,10 +539,17 @@ function loadCharacter() {
       characterGroup.lookAt(0, 0.5, 0);
       scene.add(characterGroup);
 
+      // Log exact world position after adding to scene
+      scene.updateMatrixWorld();
+      const dbBox = new THREE.Box3().setFromObject(characterGroup);
+      console.warn('GLB OK | meshes:', meshCount,
+        '| pos:', model.position.toArray().map(v=>v.toFixed(2)),
+        '| worldBox min:', dbBox.min.toArray().map(v=>v.toFixed(2)),
+        '| max:', dbBox.max.toArray().map(v=>v.toFixed(2)));
+
       mixer = new THREE.AnimationMixer(model);
       if (gltf.animations.length > 0) mixer.clipAction(gltf.animations[0]).play();
       animCache['sitting'] = gltf;
-      console.warn('GLB loaded OK, scale=' + autoScale.toFixed(4));
     },
     null,
     (err) => { console.warn('GLB not available, using box character:', err.message || err); }
