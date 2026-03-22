@@ -206,7 +206,7 @@ const CHAR_SCALE = 0.011;
 // offset so the contact point (butt/feet/body) aligns with ground.
 // Tweak ANIM_GROUND_Y if a pose floats or clips through the floor.
 const ANIM_GROUND_Y = {
-  sitting:  -0.72,  // butt on ground (sitting cross-legged)
+  sitting:  -1.05,  // butt on ground (sitting cross-legged)
   sleeping: -0.10,  // body flat on ground
   fishing:   0.00,  // feet on ground (standing)
   idle:      0.00,  // feet on ground
@@ -313,17 +313,24 @@ function buildScene() {
   scene.add(ground);
 
   // ── River ────────────────────────────────────────────────
+  // Layer order (Y): ground=0 → banks=0.005 → river=0.03
+  // Big Y gaps prevent z-fighting between layers.
+  // Banks placed OUTSIDE the river so no overlap with water plane.
   const riverMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(4.5, 60),
-    new THREE.MeshLambertMaterial({ color: 0x0a1e30, flatShading: true })
+    new THREE.PlaneGeometry(3.6, 60),
+    new THREE.MeshLambertMaterial({ color: 0x0d2235 })
   );
   riverMesh.rotation.x = -Math.PI / 2;
-  riverMesh.position.set(7, 0.02, 0);
+  riverMesh.position.set(7, 0.03, 0);
   scene.add(riverMesh);
-  [4.8, 9.2].forEach(bx => {
-    const bank = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 60), new THREE.MeshLambertMaterial({ color: 0x1a2c10, flatShading: true }));
+  // Banks sit outside the river edges, no overlap → no z-fighting
+  [{x: 4.6, w: 1.6}, {x: 9.4, w: 1.6}].forEach(({x, w}) => {
+    const bank = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, 60),
+      new THREE.MeshLambertMaterial({ color: 0x1e3010 })
+    );
     bank.rotation.x = -Math.PI / 2;
-    bank.position.set(bx, 0.015, 0);
+    bank.position.set(x, 0.005, 0);
     scene.add(bank);
   });
 
