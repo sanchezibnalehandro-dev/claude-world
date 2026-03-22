@@ -336,30 +336,30 @@ function buildScene() {
 }
 
 function buildPond() {
-  // Pond is a 3D cylinder — top face (water) at Y=0.12, base underground at Y=-0.4.
-  // Never coplanar with the ground → z-fighting is physically impossible.
+  // Pond sits ON TOP of the ground (Y=0).
+  // In isometric view, anything below Y=0 gets clipped by the ground plane.
+  // Shore ring rises slightly above ground; water sits inside it.
   const g = new THREE.Group();
-  g.position.set(7.5, -0.10, 5); // right of campfire, toward back
+  g.position.set(7.5, 0, 5);
 
   // ── Muddy shore ring ─────────────────────────────────
-  // Outer cylinder, slightly taller, forms the bank
+  // Center at Y=0.10 → bottom at Y=-0.10 (just into ground), top at Y=0.30
   const shore = new THREE.Mesh(
-    new THREE.CylinderGeometry(5.2, 5.6, 0.55, 18, 1, false),
+    new THREE.CylinderGeometry(5.2, 5.6, 0.40, 18, 1, false),
     new THREE.MeshLambertMaterial({ color: 0x1a2c10, flatShading: true })
   );
-  shore.position.y = -0.18;
+  shore.position.y = 0.10;
+  shore.scale.set(1.0, 1.0, 0.78);
   g.add(shore);
 
   // ── Water body ───────────────────────────────────────
-  // Inner cylinder — top face IS the water surface
+  // Top face at Y=0.22 (above shore rim so water is visible)
   const water = new THREE.Mesh(
-    new THREE.CylinderGeometry(4.4, 4.6, 0.52, 18, 1, false),
+    new THREE.CylinderGeometry(4.4, 4.6, 0.30, 18, 1, false),
     new THREE.MeshLambertMaterial({ color: 0x0d2235, flatShading: true })
   );
-  water.position.y = -0.14;
-  // Scale Z slightly to make it oval, not perfectly round
+  water.position.y = 0.12;
   water.scale.set(1.0, 1.0, 0.78);
-  shore.scale.set(1.0, 1.0, 0.78);
   g.add(water);
 
   // ── Shore rocks ──────────────────────────────────────
