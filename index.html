@@ -520,30 +520,25 @@ function loadCharacter() {
       fbx.position.set(-2, 0, 1.8);
       fbx.rotation.y = Math.PI * 0.25; // face toward campfire
 
-      // Palette: hermit robe colors — warm earthy tones for low-poly style
-      const HERMIT_COLORS = [
-        0x3d2a1a,  // 0 dark brown robe (primary)
-        0xc49060,  // 1 warm skin
-        0x5c3a20,  // 2 medium brown (belt/trim)
-        0x2a1a0e,  // 3 very dark brown (shadows/feet)
-        0xd4a870,  // 4 light skin (face/hands)
-        0x7a5030,  // 5 mid-brown
-      ];
-      let meshIdx = 0;
+      // Load the original diffuse texture from the source 3D model.
+      // Mixamo preserves UV coordinates → texture_diffuse.png maps correctly
+      // onto the rigged/animated FBX mesh.
+      const diffuseTex = new THREE.TextureLoader().load('/models/texture_diffuse.png');
+      diffuseTex.encoding = THREE.sRGBEncoding;
+      diffuseTex.flipY = false; // FBX UVs are not flipped
+
       fbx.traverse(child => {
         if (child.isMesh) {
           child.castShadow    = true;
           child.receiveShadow = true;
           child.frustumCulled = false;
-          // Mixamo FBX has no embedded textures — apply hermit palette instead.
-          // Multiple mesh parts get different earthy tones for low-poly depth.
+          // Apply the character's original skin+clothing texture
           const mats = Array.isArray(child.material) ? child.material : [child.material];
           const newMats = mats.map(() => new THREE.MeshLambertMaterial({
-            color:   HERMIT_COLORS[meshIdx % HERMIT_COLORS.length],
+            map:      diffuseTex,
             skinning: true,
           }));
           child.material = newMats.length === 1 ? newMats[0] : newMats;
-          meshIdx++;
         }
       });
 
