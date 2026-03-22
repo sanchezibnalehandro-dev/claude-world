@@ -514,11 +514,11 @@ function loadCharacter() {
   const loader = new THREE.FBXLoader();
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
-      // Mixamo FBX is in cm — scale to metres
-      fbx.scale.setScalar(0.01);
+      // Mixamo FBX exports in metres (bbox showed 2 units raw — correct human height)
+      // DO NOT scale down — 1 FBX unit = 1 world unit works perfectly
+      fbx.scale.setScalar(1.0);
       fbx.position.set(-2, 0, 1.8);
-      // Face toward campfire (don't use lookAt — it can flip rotation unexpectedly)
-      fbx.rotation.y = Math.PI * 0.25;
+      fbx.rotation.y = Math.PI * 0.25; // face toward campfire
 
       fbx.traverse(child => {
         if (child.isMesh) {
@@ -536,12 +536,16 @@ function loadCharacter() {
         }
       });
 
-      // Debug: where is the character after scaling?
+      // Auto-floor: shift Y so character feet sit on ground plane
       const box = new THREE.Box3().setFromObject(fbx);
       const sz = new THREE.Vector3(); box.getSize(sz);
       const ct = new THREE.Vector3(); box.getCenter(ct);
       console.warn('FBX bbox — size:', sz.x.toFixed(2), sz.y.toFixed(2), sz.z.toFixed(2),
                    '| center:', ct.x.toFixed(2), ct.y.toFixed(2), ct.z.toFixed(2));
+      if (sz.y > 0.1) {
+        // Push character up so bbox min-Y aligns with ground (y=0)
+        fbx.position.y = -box.min.y;
+      }
 
       // Replace box char only after FBX is ready
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
