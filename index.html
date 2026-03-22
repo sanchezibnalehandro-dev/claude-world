@@ -524,10 +524,12 @@ function loadCharacter() {
           meshCount++;
           child.castShadow = true;
           child.receiveShadow = true;
-          // Bright emissive Lambert so character is visible regardless of lighting
+          // SkinnedMesh bounding box is zero on CPU side (GPU moves vertices).
+          // Must disable frustum culling or Three.js skips rendering entirely.
+          child.frustumCulled = false;
           child.material = new THREE.MeshLambertMaterial({
-            color:    0xff8c00,           // bright orange — hard to miss
-            emissive: new THREE.Color(0x331a00), // faint glow
+            color:    0xff8c00,
+            emissive: new THREE.Color(0x331a00),
             skinning: child.isSkinnedMesh,
           });
         }
