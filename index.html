@@ -514,9 +514,9 @@ function loadCharacter() {
   const loader = new THREE.FBXLoader();
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
-      // Mixamo FBX exports in metres (bbox showed 2 units raw — correct human height)
-      // DO NOT scale down — 1 FBX unit = 1 world unit works perfectly
-      fbx.scale.setScalar(1.0);
+      // Mixamo built-in characters export in centimetres (170 units = 170cm)
+      // Scale down to metres: 0.01
+      fbx.scale.setScalar(0.01);
       fbx.position.set(-2, 0, 1.8);
       fbx.rotation.y = Math.PI * 0.25; // face toward campfire
 
