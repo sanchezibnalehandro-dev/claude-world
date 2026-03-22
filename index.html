@@ -313,22 +313,30 @@ function buildScene() {
   scene.add(ground);
 
   // ── River ────────────────────────────────────────────────
-  // Bank at Y=0.00, water at Y=0.02 — real depth difference,
-  // zero z-fighting, no polygonOffset needed.
-  const bankPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(8, 60),
-    new THREE.MeshLambertMaterial({ color: 0x1a2c10 })
-  );
-  bankPlane.rotation.x = -Math.PI / 2;
-  bankPlane.position.set(7, 0.00, 0);
-  scene.add(bankPlane);
+  // Three non-overlapping strips: left bank | water | right bank.
+  // No shared pixels between bank and water → z-fighting is impossible.
+  // Water: centerX=7, width=3.8  → edges at X=5.1 and X=8.9
+  // Left bank : X 1.0→5.1  (width=4.1, cx=3.05)
+  // Right bank: X 8.9→13.0 (width=4.1, cx=10.95)
+  // All at Y=0.005 (above main ground at Y=0, no conflict there either).
+  const bankMat = new THREE.MeshLambertMaterial({ color: 0x1a2c10 });
+
+  const leftBank = new THREE.Mesh(new THREE.PlaneGeometry(4.1, 60), bankMat);
+  leftBank.rotation.x = -Math.PI / 2;
+  leftBank.position.set(3.05, 0.005, 0);
+  scene.add(leftBank);
+
+  const rightBank = new THREE.Mesh(new THREE.PlaneGeometry(4.1, 60), bankMat);
+  rightBank.rotation.x = -Math.PI / 2;
+  rightBank.position.set(10.95, 0.005, 0);
+  scene.add(rightBank);
 
   const waterPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(3.8, 60),
     new THREE.MeshLambertMaterial({ color: 0x0d2235 })
   );
   waterPlane.rotation.x = -Math.PI / 2;
-  waterPlane.position.set(7, 0.02, 0);
+  waterPlane.position.set(7, 0.005, 0);
   scene.add(waterPlane);
 
   // ── Trees ────────────────────────────────────────────────
