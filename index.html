@@ -554,19 +554,42 @@ function loadCharacter() {
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
       fbx.scale.setScalar(CHAR_SCALE);
-      fbx.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
       fbx.rotation.y = Math.PI * 0.25; // face toward campfire
-
       applyFBXMaterials(fbx);
 
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
       characterGroup = fbx;
+      // Place at Y=0 initially so world bone positions are meaningful
+      fbx.position.set(CHAR_X, 0, CHAR_Z);
       scene.add(characterGroup);
 
+      // ── Auto-ground: find lowest bone in sitting pose ──────
+      // Run one animation frame so bones are in their sitting pose,
+      // then find the lowest bone world-Y. That's where we sit.
       mixer = new THREE.AnimationMixer(fbx);
       if (fbx.animations && fbx.animations.length > 0) {
         mixer.clipAction(fbx.animations[0]).play();
       }
+      mixer.update(1 / 24); // advance exactly 1 frame @ 24fps
+
+      fbx.updateMatrixWorld(true);
+      let lowestY = Infinity;
+      fbx.traverse(obj => {
+        if (obj.isBone) {
+          const wp = new THREE.Vector3();
+          obj.getWorldPosition(wp);
+          if (wp.y < lowestY) lowestY = wp.y;
+        }
+      });
+
+      // groundY: lift character so lowest bone is exactly at Y=0
+      // Add a tiny sinkage (+0.04) so the butt looks grounded, not hovering
+      const autoY = (lowestY === Infinity) ? ANIM_GROUND_Y.sitting : -lowestY + 0.04;
+      ANIM_GROUND_Y.sitting = autoY;
+      fbx.position.set(CHAR_X, autoY, CHAR_Z);
+      console.warn('FBX auto-ground: lowestBoneY=' + (lowestY === Infinity ? 'n/a' : lowestY.toFixed(3))
+                   + '  →  ANIM_GROUND_Y.sitting=' + autoY.toFixed(3));
+
       animCache['sitting'] = { animations: fbx.animations };
       console.warn('FBX loaded OK, animations:', fbx.animations.length);
     },
