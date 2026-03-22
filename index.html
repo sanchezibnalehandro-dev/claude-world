@@ -170,12 +170,44 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
 // ═══════════════════════════════════════════════════════════
 const SUPA_URL = 'https://zhngimueiubiwixnqmpt.supabase.co';
 const SUPA_KEY = 'sb_publishable_dngGHGRs5qz5Z8BgxUAtzQ_vpXbi5q4';
+
+// Функция для чтения (уже была)
 async function supaFetch(table, params = '') {
   const r = await fetch(`${SUPA_URL}/rest/v1/${table}${params}`, {
     headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
   });
-  if (!r.ok) throw new Error('Supabase ' + r.status);
+  if (!r.ok) throw new Error('Supabase Fetch ' + r.status);
   return r.json();
+}
+
+// НОВОЕ: Функция для обновления существующих данных (ресурсы, костер)
+async function supaUpdate(table, id, data) {
+  const r = await fetch(`${SUPA_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) console.error('Supabase Update Error:', await r.text());
+}
+
+// НОВОЕ: Функция для добавления новых строк (записи в дневник)
+async function supaInsert(table, data) {
+  const r = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) console.error('Supabase Insert Error:', await r.text());
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -199,19 +231,13 @@ const animCache = {};
 const FRUSTUM = 11;
 
 // ── Character constants ──────────────────────────────────────
-// Mixamo built-in chars export in cm → scale 0.01 = metres.
-// +10% from previous working size:
 const CHAR_SCALE = 0.011;
-// Ground is at world Y = 0. Each animation needs a different Y
-// offset so the contact point (butt/feet/body) aligns with ground.
-// Tweak ANIM_GROUND_Y if a pose floats or clips through the floor.
 const ANIM_GROUND_Y = {
   sitting:  -0.15,
-  sleeping: -0.10,  // body flat on ground
-  fishing:   0.00,  // feet on ground (standing)
-  idle:      0.00,  // feet on ground
+  sleeping: -0.10,
+  fishing:   0.00,
+  idle:      0.00,
 };
-// XZ position of character in the scene
 const CHAR_X = -2, CHAR_Z = 1.8;
 
 // ═══════════════════════════════════════════════════════════
@@ -219,8 +245,6 @@ const CHAR_X = -2, CHAR_Z = 1.8;
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('scene');
-
-  // Reliable size: prefer offsetWidth, fallback to window
   const w = container.offsetWidth  || (window.innerWidth  - 320);
   const h = container.offsetHeight || window.innerHeight;
 
@@ -230,7 +254,6 @@ function initThree() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0x060412, 1);
-  // Required for correct GLB/PBR material colours (sRGB encoding)
   renderer.outputEncoding = THREE.sRGBEncoding;
   container.appendChild(renderer.domElement);
 
@@ -239,7 +262,6 @@ function initThree() {
 
   clock3 = new THREE.Clock();
 
-  // Isometric orthographic camera
   const asp = w / h;
   camera = new THREE.OrthographicCamera(
     -FRUSTUM * asp / 2,  FRUSTUM * asp / 2,
@@ -249,7 +271,6 @@ function initThree() {
   camera.position.set(16, 13, 16);
   camera.lookAt(0, 1, 0);
 
-  // Resize
   window.addEventListener('resize', onResize);
 
   buildScene();
@@ -273,12 +294,9 @@ function onResize() {
 //  SCENE
 // ═══════════════════════════════════════════════════════════
 function buildScene() {
-  // ── Lights ──────────────────────────────────────────────
-  // Ambient: warm white so scene looks lit, not just coloured
   ambientLight = new THREE.AmbientLight(0xfff0e0, 0.7);
   scene.add(ambientLight);
 
-  // Sun / moon directional light
   moonLight = new THREE.DirectionalLight(0xb0c8ff, 0.4);
   moonLight.position.set(-10, 18, -6);
   moonLight.castShadow = true;
@@ -286,7 +304,6 @@ function buildScene() {
   moonLight.shadow.mapSize.height = 1024;
   scene.add(moonLight);
 
-  // Fill light from opposite side (soften shadows)
   const fillLight = new THREE.DirectionalLight(0x4060a0, 0.15);
   fillLight.position.set(10, 8, 10);
   scene.add(fillLight);
@@ -298,7 +315,6 @@ function buildScene() {
   fireLight.shadow.mapSize.height = 512;
   scene.add(fireLight);
 
-  // ── Ground ──────────────────────────────────────────────
   const gGeo = new THREE.PlaneGeometry(60, 60, 12, 12);
   const gPos = gGeo.attributes.position;
   for (let i = 0; i < gPos.count; i++) {
@@ -312,38 +328,24 @@ function buildScene() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // ── Pond ─────────────────────────────────────────────────
   buildPond();
 
-  // ── Trees ────────────────────────────────────────────────
   [
     [-7,-4,1.1],[-9,0,1.3],[-5,-7,0.8],[-10,4,1.2],
     [-4,-8,0.9],[2,-7,1.0],[5,-5,1.15],[3,-9,0.85],
     [-6,7,1.1],[-3,8,0.75],[1,7,1.05],[-11,-3,1.4],[6,-8,0.9]
   ].forEach(([x,z,s]) => buildTree(x, z, s));
 
-  // ── Campfire ─────────────────────────────────────────────
   buildCampfire();
-
-  // ── Tent ─────────────────────────────────────────────────
   buildTent(-5, -2.5);
-
-  // ── Log pile ─────────────────────────────────────────────
   buildLogPile(2.5, -1.5);
-
-  // ── Stars ────────────────────────────────────────────────
   buildStars();
 }
 
 function buildPond() {
-  // Pond sits ON TOP of the ground (Y=0).
-  // In isometric view, anything below Y=0 gets clipped by the ground plane.
-  // Shore ring rises slightly above ground; water sits inside it.
   const g = new THREE.Group();
   g.position.set(7.5, 0, 5);
 
-  // ── Muddy shore ring ─────────────────────────────────
-  // Center at Y=0.10 → bottom at Y=-0.10 (just into ground), top at Y=0.30
   const shore = new THREE.Mesh(
     new THREE.CylinderGeometry(5.2, 5.6, 0.40, 18, 1, false),
     new THREE.MeshLambertMaterial({ color: 0x1a2c10, flatShading: true })
@@ -352,9 +354,6 @@ function buildPond() {
   shore.scale.set(1.0, 1.0, 0.78);
   g.add(shore);
 
-  // ── Water body ───────────────────────────────────────
-  // Lighter blue so it's visible in nighttime lighting.
-  // Top face at Y=0.32 — just above the shore rim (0.30) so water shows.
   const water = new THREE.Mesh(
     new THREE.CylinderGeometry(4.3, 4.5, 0.44, 18, 1, false),
     new THREE.MeshLambertMaterial({ color: 0x1a4060, flatShading: true })
@@ -363,7 +362,6 @@ function buildPond() {
   water.scale.set(1.0, 1.0, 0.78);
   g.add(water);
 
-  // ── Shore rocks ──────────────────────────────────────
   const rockMat = new THREE.MeshLambertMaterial({ color: 0x3a3028, flatShading: true });
   const rockAngles = [0, 0.42, 0.85, 1.3, 1.75, 2.2, 2.6, 3.0, 3.5, 3.9, 4.4, 4.9, 5.4, 5.8];
   rockAngles.forEach((a, i) => {
@@ -377,7 +375,6 @@ function buildPond() {
     rock.castShadow = true;
     g.add(rock);
   });
-
   scene.add(g);
 }
 
@@ -492,7 +489,6 @@ function buildStars() {
 //  CHARACTER — box fallback + GLB loader
 // ═══════════════════════════════════════════════════════════
 
-// Always build a low-poly box character as placeholder
 function buildBoxCharacter() {
   characterGroup = new THREE.Group();
   characterGroup.position.set(-2, 0, 1.8);
@@ -502,43 +498,34 @@ function buildBoxCharacter() {
   const hatMat   = new THREE.MeshLambertMaterial({ color: 0x181008, flatShading: true });
   const bootMat  = new THREE.MeshLambertMaterial({ color: 0x1a1008, flatShading: true });
 
-  // Sitting rock
   const rock = new THREE.Mesh(new THREE.SphereGeometry(0.32, 5, 4),
     new THREE.MeshLambertMaterial({ color: 0x2a2018, flatShading: true }));
   rock.scale.set(1.3, 0.55, 1.0); rock.position.set(0, 0.18, 0.1);
   characterGroup.add(rock);
 
-  // Torso
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.58, 0.3), clothMat);
   torso.position.y = 0.78; torso.castShadow = true; characterGroup.add(torso);
 
-  // Head
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.33), skinMat);
   head.position.y = 1.28; head.castShadow = true; characterGroup.add(head);
 
-  // Hat brim
   const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.05, 8), hatMat);
   brim.position.y = 1.48; characterGroup.add(brim);
-  // Hat crown
   const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.23, 0.3, 8), hatMat);
   crown.position.y = 1.65; characterGroup.add(crown);
 
-  // Thighs
   const thighGeo = new THREE.BoxGeometry(0.17, 0.14, 0.48);
   [-0.14, 0.14].forEach(tx => {
     const t = new THREE.Mesh(thighGeo, clothMat); t.position.set(tx, 0.45, 0.24); characterGroup.add(t);
   });
-  // Shins
   [-0.14, 0.14].forEach(tx => {
     const s = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.4, 0.14), clothMat);
     s.position.set(tx, 0.25, 0.46); characterGroup.add(s);
   });
-  // Boots
   [-0.14, 0.14].forEach(tx => {
     const b = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.23), bootMat);
     b.position.set(tx, 0.08, 0.5); characterGroup.add(b);
   });
-  // Arms
   const armGeo = new THREE.BoxGeometry(0.13, 0.12, 0.42);
   [[-0.29, 0.22], [0.29, -0.22]].forEach(([ax, rz]) => {
     const arm = new THREE.Mesh(armGeo, skinMat);
@@ -554,7 +541,7 @@ function applyFBXMaterials(fbx) {
     if (child.isMesh) {
       child.castShadow    = true;
       child.receiveShadow = true;
-      child.frustumCulled = false; // r128 SkinnedMesh has zero CPU bbox
+      child.frustumCulled = false;
       const mats = Array.isArray(child.material) ? child.material : [child.material];
       mats.forEach(mat => { if (mat) mat.skinning = true; });
     }
@@ -562,9 +549,6 @@ function applyFBXMaterials(fbx) {
 }
 
 function loadCharacter() {
-  // Do NOT show box character — it's the "inflatable" that users see briefly.
-  // Just wait for FBX silently. Only fall back to box if FBX truly fails.
-
   const loading = document.getElementById('loading');
   if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
 
@@ -579,7 +563,7 @@ function loadCharacter() {
     (fbx) => {
       fbx.scale.setScalar(CHAR_SCALE);
       fbx.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
-      fbx.rotation.y = Math.PI * 0.25; // face toward campfire
+      fbx.rotation.y = Math.PI * 0.25;
 
       applyFBXMaterials(fbx);
 
@@ -635,13 +619,9 @@ function animateLoop() {
   const delta = clock3.getDelta();
   const t = clock3.elapsedTime;
 
-  // Animation mixer
   if (mixer) mixer.update(delta);
-  // Mixamo bakes root-motion into FBX — animation overwrites position.y every frame.
-  // Force Y back to the correct ground offset after every mixer update.
   if (characterGroup) characterGroup.position.y = ANIM_GROUND_Y.sitting;
 
-  // Campfire flicker
   if (fireLight && state.fire) {
     fireLight.intensity = 3.0 + Math.sin(t*7.1)*0.5 + Math.sin(t*13.3)*0.3 + Math.sin(t*19.7)*0.15;
     if (Math.random() > 0.97) fireLight.color.setHex(0xff9040);
@@ -658,7 +638,6 @@ function animateLoop() {
   renderer.render(scene, camera);
 }
 
-// ─── Fire state ───────────────────────────────────────────
 function setFireState(active) {
   if (flameGroup) flameGroup.visible = active;
   if (fireLight)  fireLight.intensity = active ? 3.0 : 0;
@@ -698,24 +677,20 @@ function updateClock() {
 
 function updateSky(h, amb) {
   if (!renderer) return;
-  // Brighter, more vivid sky palette
   const SKIES = [
-    [5,  7,  0x6a2448],  // dawn — warm rose-purple
-    [7,  11, 0x2a5080],  // morning — deep blue
-    [11, 17, 0x2860a8],  // day — sky blue
-    [17, 20, 0x7a2808],  // dusk — burnt orange
-    [20, 23, 0x1a0c30],  // evening — dark indigo
+    [5,  7,  0x6a2448],
+    [7,  11, 0x2a5080],
+    [11, 17, 0x2860a8],
+    [17, 20, 0x7a2808],
+    [20, 23, 0x1a0c30],
   ];
-  let col = 0x090418;    // night — very dark blue
+  let col = 0x090418;
   for (const [a,b,c] of SKIES) if (h>=a && h<b) { col=c; break; }
   renderer.setClearColor(col, 1);
   if (scene) scene.fog.color.setHex(col);
-  // Ambient: dim at night, bright during day
   if (ambientLight) ambientLight.intensity = 0.25 + amb * 1.1;
-  // Directional: bright sun during day, dim moonlight at night
   if (moonLight) {
     moonLight.intensity = 0.1 + amb * 0.75;
-    // Warm sun colour during day, cool blue at night
     const dayCol  = new THREE.Color(0xfff0c0);
     const nightCol = new THREE.Color(0x6080c0);
     moonLight.color.lerpColors(nightCol, dayCol, amb);
@@ -725,7 +700,6 @@ function updateSky(h, amb) {
 function updateNightElements(amb) {
   if (starParticles) starParticles.material.opacity = Math.max(0, 1 - amb * 2.5);
   if (fireLight && state.fire) {
-    // Fire more dramatic at night, still present during day
     fireLight.intensity = 1.8 + (1-amb) * 2.0;
   }
 }
@@ -810,7 +784,8 @@ async function triggerVisit() {
     });
     const data = await res.json();
     const raw = data.content?.find(b=>b.type==='text')?.text || '{}';
-    applyDecision(JSON.parse(raw.replace(/```json|```/g,'').trim()));
+    // НОВОЕ: Ожидаем завершения сохранения (await)
+    await applyDecision(JSON.parse(raw.replace(/```json|```/g,'').trim()));
   } catch(e) {
     st.textContent = 'API не подключён — запусти через Cowork';
     addEntry({ type: 'action', text: '⚠️ Для настоящего визита нужен прокси. Агент работает из Cowork.' });
@@ -818,7 +793,7 @@ async function triggerVisit() {
   agentBusy = false; btn.disabled = false; btn.textContent = '▶ ВИЗИТ АГЕНТА'; st.textContent = 'Клод у костра';
 }
 
-function applyDecision(d) {
+async function applyDecision(d) {
   const inv = state.inv;
   if (d.wood_delta)     inv.wood     = Math.max(0, inv.wood     + (d.wood_delta||0));
   if (d.fish_delta)     inv.fish     = Math.max(0, inv.fish     + (d.fish_delta||0));
@@ -826,11 +801,53 @@ function applyDecision(d) {
   if (d.herb_delta)     inv.herb     = Math.max(0, inv.herb     + (d.herb_delta||0));
   if (d.made_rod)       inv.rod = 1;
   if (d.lit_fire && inv.wood >= 2) { state.fire = true; state.fireWood = 3; inv.wood -= 2; setFireState(true); }
-  (Array.isArray(d.actions)?d.actions:[]).forEach(a => addEntry({ type:'action', text:a }));
-  if (d.thought) addEntry({ type:'thought', text:d.thought });
-  if (d.wish)    addEntry({ type:'wish',    text:d.wish    });
+
+  const newEntries = [];
+
+  (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
+    const e = { type:'action', text:a };
+    addEntry(e);
+    newEntries.push(e); // Собираем новые элементы для сохранения
+  });
+  if (d.thought) {
+    const e = { type:'thought', text:d.thought };
+    addEntry(e);
+    newEntries.push(e);
+  }
+  if (d.wish) {
+    const e = { type:'wish', text:d.wish };
+    addEntry(e);
+    newEntries.push(e);
+  }
+  
   updateResources();
   document.getElementById('status-text').textContent = 'Клод у костра';
+
+  // ─── НОВОЕ: ОТПРАВКА ДАННЫХ В SUPABASE ───
+  try {
+    // 1. Обновляем цифры ресурсов и статус костра
+    await supaUpdate('claude_world_state', 1, {
+      fire: state.fire,
+      fire_wood: state.fireWood,
+      inv_wood: state.inv.wood,
+      inv_fish: state.inv.fish,
+      inv_mushroom: state.inv.mushroom,
+      inv_herb: state.inv.herb,
+      inv_rod: state.inv.rod
+    });
+
+    // 2. Добавляем новые записи дневника в базу
+    for (const e of newEntries) {
+      await supaInsert('claude_world_diary', {
+        type: e.type,
+        text: e.text,
+        time: e.time, // Уже сгенерировано в addEntry
+        day: e.day    // Уже проставлено в addEntry
+      });
+    }
+  } catch(err) {
+    console.error('Ошибка при сохранении в базу после визита:', err);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -929,9 +946,15 @@ window.addEventListener('load', () => {
       state.fireWood -= 0.02;
       if (state.fireWood <= 0) {
         state.fire = false;
-        addEntry({ type: 'event', text: 'Костёр догорел.' });
+        state.fireWood = 0;
+        const e = { type: 'event', text: 'Костёр догорел.' };
+        addEntry(e);
         setFireState(false);
+        // НОВОЕ: Записываем событие затухания костра в базу
+        supaInsert('claude_world_diary', { type: e.type, text: e.text, time: e.time, day: e.day }).catch(console.error);
       }
+      // НОВОЕ: Синхронизируем уменьшение дров с базой, чтобы не было "прыжков"
+      supaUpdate('claude_world_state', 1, { fire: state.fire, fire_wood: state.fireWood }).catch(console.error);
     }
   }, 60000);
 });
