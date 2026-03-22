@@ -228,7 +228,7 @@ const animCache = {};
 const FRUSTUM = 11;
 
 const CHAR_SCALE = 0.011;
-const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing: 0.15, idle: 0.00 }; // Чуть подняли fishing
+const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing: 0.15, idle: 0.00 };
 const CHAR_X = -2, CHAR_Z = 1.8;
 
 // ═══════════════════════════════════════════════════════════
@@ -535,7 +535,7 @@ function applyFBXMaterials(fbx) {
   });
 }
 
-// ─── ИЗМЕНЕНО: Правильное кэширование базовой модели ───
+// ─── ИЗМЕНЕНО: Загружаем базовую модель с кожей и сохраняем её ───
 function loadCharacter() {
   const loading = document.getElementById('loading');
   if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
@@ -561,10 +561,10 @@ function loadCharacter() {
 
       mixer = new THREE.AnimationMixer(fbx);
       if (fbx.animations && fbx.animations.length > 0) {
-        mixer.clipAction(fbx.animations[0]).play();
+        const clip = fbx.animations[0];
+        animCache['sitting'] = clip; // сохраняем базовое движение
+        mixer.clipAction(clip).play();
       }
-      // Сохраняем всю модель со скелетом в кэш!
-      animCache['sitting'] = { mesh: fbx, mixer: mixer }; 
       console.warn('FBX loaded OK, animations:', fbx.animations.length);
     },
     null,
@@ -575,48 +575,41 @@ function loadCharacter() {
   );
 }
 
-// ─── ИЗМЕНЕНО: Полная замена 3D-модели при смене анимации ───
+// ─── ИЗМЕНЕНО: Вытягиваем только движения, не ломая скин! ───
 async function switchAnimation(name, url, targetPos, targetLookAt) {
-  if (!characterGroup) return;
+  if (!characterGroup || !mixer) return;
 
-  // 1. Проверяем кэш. Если есть целая загруженная модель — берем её.
-  let nextChar = animCache[name]?.mesh;
-
-  if (!nextChar) {
-    try {
-      const loader = new THREE.FBXLoader();
-      const loadedFbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
-      
-      loadedFbx.scale.setScalar(CHAR_SCALE);
-      applyFBXMaterials(loadedFbx);
-      
-      const newMixer = new THREE.AnimationMixer(loadedFbx);
-      if (loadedFbx.animations.length > 0) {
-        newMixer.clipAction(loadedFbx.animations[0]).play();
-      }
-      
-      animCache[name] = { mesh: loadedFbx, mixer: newMixer };
-      nextChar = loadedFbx;
-    } catch(e) { 
-      console.warn('Ошибка загрузки FBX анимации:', e); 
-      return; 
-    }
-  }
-
-  // 2. Убираем старую модель со сцены
-  scene.remove(characterGroup);
-  
-  // 3. Ставим новую модель
-  characterGroup = nextChar;
-  mixer = animCache[name].mixer;
-  scene.add(characterGroup);
-
-  // 4. Двигаем и поворачиваем
+  // 1. Двигаем и поворачиваем нашего ОРИГИНАЛЬНОГО Клода
   if (targetPos)    characterGroup.position.set(...targetPos);
   if (targetLookAt) characterGroup.lookAt(...targetLookAt);
   
-  // 5. Корректируем высоту земли
+  // Корректируем высоту земли для конкретной позы
   characterGroup.position.y = ANIM_GROUND_Y[name] !== undefined ? ANIM_GROUND_Y[name] : 0;
+
+  // 2. Если движение уже есть в памяти — включаем его плавно
+  if (animCache[name]) {
+    mixer.stopAllAction();
+    // fadeIn(0.5) делает плавный переход от сидения к рыбалке за полсекунды
+    mixer.clipAction(animCache[name]).reset().fadeIn(0.5).play();
+    return;
+  }
+
+  // 3. Скачиваем FBX файл
+  try {
+    const loader = new THREE.FBXLoader();
+    const loadedFbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
+    
+    // ВЫТАСКИВАЕМ ТОЛЬКО ДВИЖЕНИЕ (первую анимацию из файла)
+    const clip = loadedFbx.animations[0];
+    
+    if (clip) {
+      animCache[name] = clip; // сохраняем только движение в кэш
+      mixer.stopAllAction();
+      mixer.clipAction(clip).reset().fadeIn(0.5).play();
+    }
+  } catch(e) { 
+    console.warn('Ошибка загрузки FBX анимации:', e); 
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -628,8 +621,6 @@ function animateLoop() {
   const t = clock3.elapsedTime;
 
   if (mixer) mixer.update(delta);
-  // ИЗМЕНЕНО: удалена жесткая привязка characterGroup.position.y, 
-  // теперь высота зависит от конкретной позы!
 
   if (fireLight && state.fire) {
     fireLight.intensity = 3.0 + Math.sin(t*7.1)*0.5 + Math.sin(t*13.3)*0.3 + Math.sin(t*19.7)*0.15;
@@ -875,10 +866,8 @@ async function applyDecision(d) {
 // ═══════════════════════════════════════════════════════════
 let _poseResetTimer = null;
 
-// ─── ИЗМЕНЕНО: Новые координаты и логика переключения ───
 function setPose(name) {
   if (name === 'fishing') {
-    // Координаты берега: X=3.5, Z=2.5. Смотрит в центр пруда: X=7.5, Z=5
     switchAnimation('fishing', '/models/Fishing Idle.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
   } else if (name === 'typing') {
     switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
