@@ -229,7 +229,6 @@ const loadedModels = {};
 
 const FRUSTUM = 11;
 const CHAR_SCALE = 0.011;
-// ── ДОБАВЛЕНА ПОЗА 'casting' ──
 const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, casting: 0.00, fishing_idle: 0.10, idle: 0.00 };
 const CHAR_X = -2, CHAR_Z = 1.8;
 
@@ -548,6 +547,7 @@ function loadCharacter() {
   }
 
   const loader = new THREE.FBXLoader();
+  // Убеждаемся, что путь точно совпадает
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
       fbx.scale.setScalar(CHAR_SCALE);
@@ -573,7 +573,7 @@ function loadCharacter() {
   );
 }
 
-// ── ИЗМЕНЕНО: Добавлена логика playOnce и onFinish для цепочек анимаций ──
+// ── Логика цепочек анимаций ──
 async function switchAnimation(name, url, targetPos, targetLookAt, playOnce = false, onFinish = null) {
   if (!loadedModels[name]) {
     try {
@@ -604,7 +604,6 @@ async function switchAnimation(name, url, targetPos, targetLookAt, playOnce = fa
   
   characterGroup.position.y = ANIM_GROUND_Y[name] !== undefined ? ANIM_GROUND_Y[name] : 0;
 
-  // Управление воспроизведением (один раз или бесконечно)
   if (characterGroup.animations.length > 0) {
     const clip = characterGroup.animations[0];
     const action = mixer.clipAction(clip);
@@ -612,17 +611,15 @@ async function switchAnimation(name, url, targetPos, targetLookAt, playOnce = fa
 
     if (playOnce) {
       action.setLoop(THREE.LoopOnce, 1);
-      action.clampWhenFinished = true; // Замираем на последнем кадре после взмаха
+      action.clampWhenFinished = true;
     } else {
-      action.setLoop(THREE.LoopRepeat, Infinity); // Крутим бесконечно
+      action.setLoop(THREE.LoopRepeat, Infinity);
     }
     
     action.play();
 
-    // Если запросили выполнить функцию после окончания анимации
     if (playOnce && onFinish) {
       setTimeout(() => {
-        // Защита: проверяем, не нажал ли юзер что-то еще, пока шла анимация
         if (characterGroup === loadedModels[name].mesh) {
           onFinish();
         }
@@ -885,21 +882,19 @@ async function applyDecision(d) {
 // ═══════════════════════════════════════════════════════════
 let _poseResetTimer = null;
 
-// ── ИЗМЕНЕНО: Цепочка анимаций для рыбалки ──
+// ── ИЗМЕНЕНО: Пути без пробелов, точно как на сервере ──
 function setPose(name) {
   if (name === 'fishing') {
-    // 1. Сначала проигрываем один раз файл "Casting Fishing Line.fbx"
     switchAnimation(
       'casting', 
-      '/models/Casting Fishing Line.fbx', 
+      '/models/casting-fishing-line.fbx', 
       [3.5, 0, 2.5], 
       [7.5, 0, 5], 
       true, // playOnce
       () => {
-        // 2. И как только он закончит замах, переключаемся на зацикленное сидение
         switchAnimation(
           'fishing_idle', 
-          '/models/Fishing Idle.fbx', 
+          '/models/fishing-idle.fbx', 
           [3.5, 0, 2.5], 
           [7.5, 0, 5]
         );
