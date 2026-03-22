@@ -515,10 +515,13 @@ function loadCharacter() {
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
       // Mixamo built-in characters export in centimetres (170 units = 170cm)
-      // Scale down to metres: 0.01
-      fbx.scale.setScalar(0.01);
-      fbx.position.set(-2, 0, 1.8);
-      fbx.rotation.y = Math.PI * 0.25; // face toward campfire
+      fbx.scale.setScalar(0.018); // slightly larger than 0.01 so character is visible
+
+      // Sitting idle animation: the T-pose bbox feet are at ~y=0 but during
+      // the sitting animation the hips drop lower. Shift down so butt
+      // appears to rest on ground, not float. -0.5 * scale * ~50cm seat height
+      fbx.position.set(-2, -0.35, 1.8);
+      fbx.rotation.y = Math.PI * 0.25;
 
       fbx.traverse(child => {
         if (child.isMesh) {
@@ -531,17 +534,6 @@ function loadCharacter() {
           mats.forEach(mat => { if (mat) mat.skinning = true; });
         }
       });
-
-      // Auto-floor: shift Y so character feet sit on ground plane
-      const box = new THREE.Box3().setFromObject(fbx);
-      const sz = new THREE.Vector3(); box.getSize(sz);
-      const ct = new THREE.Vector3(); box.getCenter(ct);
-      console.warn('FBX bbox — size:', sz.x.toFixed(2), sz.y.toFixed(2), sz.z.toFixed(2),
-                   '| center:', ct.x.toFixed(2), ct.y.toFixed(2), ct.z.toFixed(2));
-      if (sz.y > 0.1) {
-        // Push character up so bbox min-Y aligns with ground (y=0)
-        fbx.position.y = -box.min.y;
-      }
 
       // Replace box char only after FBX is ready
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
