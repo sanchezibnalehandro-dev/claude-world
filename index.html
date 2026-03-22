@@ -543,8 +543,9 @@ function loadCharacter() {
                                             : new THREE.Color(0xc8a065);
           child.material = new THREE.MeshLambertMaterial({
             map:      tex,
-            color:    tex ? 0xffffff : col,  // white tint when texture present
-            emissive: new THREE.Color(0x0a0806), // tiny emissive — never pure black
+            color:    tex ? 0xffffff : col,
+            emissive: new THREE.Color(0x0a0806),
+            skinning: child.isSkinnedMesh,  // CRITICAL: must be true for bone deformation
           });
         }
       });
