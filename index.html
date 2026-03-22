@@ -803,7 +803,7 @@ async function triggerVisit() {
   const btn = document.getElementById('visit-btn'), st = document.getElementById('status-text');
   btn.disabled = true; btn.textContent = '⌛ КЛОД ДУМАЕТ...'; st.textContent = 'Клод входит в мир...';
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/agent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 600, system: AGENT_PROMPT, messages: [{ role: 'user', content: buildContext() }] })
