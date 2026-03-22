@@ -517,25 +517,35 @@ function loadCharacter() {
       // Mixamo FBX is in cm — scale to metres
       fbx.scale.setScalar(0.01);
       fbx.position.set(-2, 0, 1.8);
+      // Face toward campfire (don't use lookAt — it can flip rotation unexpectedly)
+      fbx.rotation.y = Math.PI * 0.25;
 
       fbx.traverse(child => {
         if (child.isMesh) {
           child.castShadow    = true;
           child.receiveShadow = true;
-          child.frustumCulled = false;  // SkinnedMesh has zero CPU bounding box
-          // Replace PBR material with Lambert so it renders under our lighting
-          child.material = new THREE.MeshLambertMaterial({
-            map:      child.material && child.material.map ? child.material.map : null,
-            color:    child.material && child.material.map ? 0xffffff : 0xc8a065,
-            skinning: child.isSkinnedMesh,
-          });
+          child.frustumCulled = false;  // SkinnedMesh has zero CPU bounding box in r128
+          // child.material can be an Array in Mixamo FBX — handle both cases
+          const srcMats = Array.isArray(child.material) ? child.material : [child.material];
+          const newMats = srcMats.map(mat => new THREE.MeshLambertMaterial({
+            map:      mat && mat.map ? mat.map : null,
+            color:    mat && mat.map ? 0xffffff : 0xc8a065,
+            skinning: !!child.isSkinnedMesh,
+          }));
+          child.material = newMats.length === 1 ? newMats[0] : newMats;
         }
       });
+
+      // Debug: where is the character after scaling?
+      const box = new THREE.Box3().setFromObject(fbx);
+      const sz = new THREE.Vector3(); box.getSize(sz);
+      const ct = new THREE.Vector3(); box.getCenter(ct);
+      console.warn('FBX bbox — size:', sz.x.toFixed(2), sz.y.toFixed(2), sz.z.toFixed(2),
+                   '| center:', ct.x.toFixed(2), ct.y.toFixed(2), ct.z.toFixed(2));
 
       // Replace box char only after FBX is ready
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
       characterGroup = fbx;
-      characterGroup.lookAt(0, 0.5, 0);
       scene.add(characterGroup);
 
       mixer = new THREE.AnimationMixer(fbx);
