@@ -396,10 +396,10 @@ function buildTent(x, z) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
   const t = new THREE.Mesh(new THREE.ConeGeometry(0.95, 1.7, 3, 1), new THREE.MeshLambertMaterial({ color: 0x2c2010, flatShading: true }));
-  t.position.y = 0.85; t.rotation.y = Math.PI/3; t.castShadow = true;
+  t.position.y = 0.85; t.rotation.y = Math.PI/4; t.castShadow = true;
   g.add(t);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.93, 0.93, 0.06, 3), new THREE.MeshLambertMaterial({ color: 0x1e1408, flatShading: true }));
-  base.position.y = 0.03; base.rotation.y = Math.PI/3;
+  base.position.y = 0.03; base.rotation.y = Math.PI/4;
   g.add(base);
   const stakeMat = new THREE.MeshLambertMaterial({ color: 0x4a3818, flatShading: true });
   for (let i = 0; i < 3; i++) {
@@ -510,11 +510,24 @@ function loadCharacter() {
   loader.load('/models/sitting-idle.glb',
     (gltf) => {
       const model = gltf.scene;
-      model.scale.setScalar(0.01);
-      model.position.set(-2, 0, 1.8);
+
+      // Auto-scale: normalise to ~1.7 units tall regardless of export units (cm vs m)
+      const tmpBox = new THREE.Box3().setFromObject(model);
+      const tmpSz  = new THREE.Vector3();
+      tmpBox.getSize(tmpSz);
+      const autoScale = tmpSz.y > 0.01 ? 1.7 / tmpSz.y : 0.01;
+      model.scale.setScalar(autoScale);
+
+      // Re-measure after scale so we can sit the model exactly on the ground
+      const groundBox = new THREE.Box3().setFromObject(model);
+      model.position.set(-2, -groundBox.min.y, 1.8);
+
       model.traverse(child => {
         if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; }
       });
+
+      // Hide until the first animation frame so T-pose never flashes on screen
+      model.visible = false;
 
       // Only remove box char AFTER GLB is ready to replace it
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
@@ -525,6 +538,9 @@ function loadCharacter() {
       mixer = new THREE.AnimationMixer(model);
       if (gltf.animations.length > 0) mixer.clipAction(gltf.animations[0]).play();
       animCache['sitting'] = gltf;
+
+      // Show after two rAF ticks — animation is already running by then
+      requestAnimationFrame(() => requestAnimationFrame(() => { model.visible = true; }));
     },
     null,
     (err) => { console.info('GLB not yet available, using box character.', err); }
