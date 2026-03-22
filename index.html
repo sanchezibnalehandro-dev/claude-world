@@ -313,26 +313,15 @@ function buildScene() {
   scene.add(ground);
 
   // ── River ────────────────────────────────────────────────
-  // Layer order (Y): ground=0 → banks=0.005 → river=0.03
-  // Big Y gaps prevent z-fighting between layers.
-  // Banks placed OUTSIDE the river so no overlap with water plane.
+  // Just the water plane — no separate bank meshes (they caused green z-fighting).
+  // The dark ground color naturally frames the river as muddy banks.
   const riverMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.6, 60),
+    new THREE.PlaneGeometry(3.8, 60),
     new THREE.MeshLambertMaterial({ color: 0x0d2235 })
   );
   riverMesh.rotation.x = -Math.PI / 2;
-  riverMesh.position.set(7, 0.03, 0);
+  riverMesh.position.set(7, 0.02, 0);
   scene.add(riverMesh);
-  // Banks sit outside the river edges, no overlap → no z-fighting
-  [{x: 4.6, w: 1.6}, {x: 9.4, w: 1.6}].forEach(({x, w}) => {
-    const bank = new THREE.Mesh(
-      new THREE.PlaneGeometry(w, 60),
-      new THREE.MeshLambertMaterial({ color: 0x1e3010 })
-    );
-    bank.rotation.x = -Math.PI / 2;
-    bank.position.set(x, 0.005, 0);
-    scene.add(bank);
-  });
 
   // ── Trees ────────────────────────────────────────────────
   [
@@ -610,6 +599,9 @@ function animateLoop() {
 
   // Animation mixer
   if (mixer) mixer.update(delta);
+  // Mixamo bakes root-motion into FBX — animation overwrites position.y every frame.
+  // Force Y back to the correct ground offset after every mixer update.
+  if (characterGroup) characterGroup.position.y = ANIM_GROUND_Y.sitting;
 
   // Campfire flicker
   if (fireLight && state.fire) {
