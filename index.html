@@ -535,12 +535,17 @@ function loadCharacter() {
         if (child.isMesh) {
           child.castShadow = true;
           child.receiveShadow = true;
-          // Ensure PBR materials stay visible under our lighting
-          if (child.material) {
-            child.material.roughness = 0.8;
-            child.material.metalness = 0.1;
-            child.material.needsUpdate = true;
-          }
+          // PBR materials from Mixamo render black under Lambert-style lighting.
+          // Replace with MeshLambertMaterial, keeping the texture if one is embedded.
+          const orig = child.material;
+          const tex  = orig && orig.map ? orig.map : null;
+          const col  = (orig && orig.color) ? orig.color.clone()
+                                            : new THREE.Color(0xc8a065);
+          child.material = new THREE.MeshLambertMaterial({
+            map:      tex,
+            color:    tex ? 0xffffff : col,  // white tint when texture present
+            emissive: new THREE.Color(0x0a0806), // tiny emissive — never pure black
+          });
         }
       });
 
