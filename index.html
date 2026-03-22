@@ -298,16 +298,16 @@ function buildScene() {
 
   // ── River ────────────────────────────────────────────────
   const riverMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(4.5, 36),
-    new THREE.MeshLambertMaterial({ color: 0x081828, flatShading: true })
+    new THREE.PlaneGeometry(4.5, 60),
+    new THREE.MeshLambertMaterial({ color: 0x0a1e30, flatShading: true })
   );
   riverMesh.rotation.x = -Math.PI / 2;
-  riverMesh.position.set(7, 0.01, 0);
+  riverMesh.position.set(7, 0.02, 0);
   scene.add(riverMesh);
   [4.8, 9.2].forEach(bx => {
-    const bank = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 36), new THREE.MeshLambertMaterial({ color: 0x182810, flatShading: true }));
+    const bank = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 60), new THREE.MeshLambertMaterial({ color: 0x1a2c10, flatShading: true }));
     bank.rotation.x = -Math.PI / 2;
-    bank.position.set(bx, 0.01, 0);
+    bank.position.set(bx, 0.015, 0);
     scene.add(bank);
   });
 
@@ -525,14 +525,10 @@ function loadCharacter() {
           child.castShadow    = true;
           child.receiveShadow = true;
           child.frustumCulled = false;  // SkinnedMesh has zero CPU bounding box in r128
-          // child.material can be an Array in Mixamo FBX — handle both cases
-          const srcMats = Array.isArray(child.material) ? child.material : [child.material];
-          const newMats = srcMats.map(mat => new THREE.MeshLambertMaterial({
-            map:      mat && mat.map ? mat.map : null,
-            color:    mat && mat.map ? 0xffffff : 0xc8a065,
-            skinning: !!child.isSkinnedMesh,
-          }));
-          child.material = newMats.length === 1 ? newMats[0] : newMats;
+          // Keep Mixamo's original materials (they have textures embedded).
+          // FBXLoader doesn't always set skinning:true — add it manually.
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(mat => { if (mat) mat.skinning = true; });
         }
       });
 
