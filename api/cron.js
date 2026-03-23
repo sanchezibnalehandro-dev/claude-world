@@ -1,13 +1,12 @@
 export default async function handler(req, res) {
-  // Базовая защита: Vercel Cron отправляет специальный заголовок. 
-  // Это нужно, чтобы случайные люди из интернета не запускали этот скрипт.
+  // Защита Vercel Cron
   const authHeader = req.headers.authorization;
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const SUPA_URL = 'https://zhngimueiubiwixnqmpt.supabase.co';
-  const SUPA_KEY = 'sb_publishable_dngGHGRs5qz5Z8BgxUAtzQ_vpXbi5q4'; // Твой публичный ключ
+  const SUPA_KEY = 'sb_publishable_dngGHGRs5qz5Z8BgxUAtzQ_vpXbi5q4';
   const HEADERS = {
     'apikey': SUPA_KEY,
     'Authorization': 'Bearer ' + SUPA_KEY,
@@ -15,7 +14,6 @@ export default async function handler(req, res) {
     'Prefer': 'return=minimal'
   };
 
-  // 1. Вспомогательные функции времени (МСК)
   function getMSK() { return new Date(Date.now() + 3 * 3600000); }
   function getPhase(h) {
     if (h >= 5 && h < 7) return { text: '🌅 Рассвет' };
@@ -27,7 +25,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 2. Получаем актуальное состояние из базы
     const stateRes = await fetch(`${SUPA_URL}/rest/v1/claude_world_state?id=eq.1`, { headers: HEADERS });
     const states = await stateRes.json();
     const s = states[0];
@@ -37,18 +34,36 @@ export default async function handler(req, res) {
       cellar: { fish: s.cellar_fish, mushroom: s.cellar_mushroom }
     };
 
-    // Получаем последние записи дневника
     const diaryRes = await fetch(`${SUPA_URL}/rest/v1/claude_world_diary?select=*&order=id.desc&limit=6`, { headers: HEADERS });
     const entries = await diaryRes.json();
 
-    // 3. Формируем контекст (Промпт)
+    // ─── ФИЗИКА ЧЕСТНОГО СЕРВЕРНОГО ВРЕМЕНИ ───
+    let elapsedMinutes = 180; // Если дневник пуст, считаем как 3 часа
+    if (entries.length > 0 && entries[0].created_at) {
+        const lastTime = new Date(entries[0].created_at).getTime();
+        elapsedMinutes = (Date.now() - lastTime) / 60000;
+    }
+    
+    if (state.fire && elapsedMinutes > 0) {
+        state.fireWood -= (elapsedMinutes * 0.01); 
+        if (state.fireWood <= 0) {
+            state.fire = false;
+            state.fireWood = 0;
+        }
+    }
+    // ─────────────────────────────────────────
+
     const msk = getMSK(); const h = msk.getHours(); const m = msk.getMinutes();
     const phase = getPhase(h); const inv = state.inv;
 
     let survivalWarnings = [];
-    if (!state.fire && (h >= 20 || h < 7)) survivalWarnings.push("⚡ УГРОЗА ЖИЗНИ: Ночь, костер погас. Ты замерзаешь.");
-    if (inv.fish === 0 && inv.mushroom === 0) survivalWarnings.push("⚡ УГРОЗА ЖИЗНИ: У тебя совсем нет еды.");
-    if (inv.wood < 2 && state.fire) survivalWarnings.push("⚠️ ПРЕДУПРЕЖДЕНИЕ: Запас дров критически мал.");
+    if (!state.fire && (h >= 20 || h < 7)) survivalWarnings.push("⚡ УГРОЗА ЖИЗНИ: Ночь, костер погас. Ты замерзаешь. Разведение огня — абсолютный приоритет!");
+    if (inv.fish === 0 && inv.mushroom === 0) survivalWarnings.push("⚡ УГРОЗА ЖИЗНИ: У тебя совсем нет еды. Ты слабеешь от голода.");
+    if (state.fire && state.fireWood < 1.5) {
+        survivalWarnings.push("⚠️ ПРЕДУПРЕЖДЕНИЕ: Костер начинает угасать. Пора подбросить дров (feed_fire: true)!");
+    } else if (inv.wood < 2 && !state.fire) {
+        survivalWarnings.push("⚠️ ПРЕДУПРЕЖДЕНИЕ: Костер погас, а запас дров критически мал. Тебе нечем его разжечь.");
+    }
     const warningsText = survivalWarnings.length > 0 ? '\nФИЗИЧЕСКОЕ СОСТОЯНИЕ:\n' + survivalWarnings.join('\n') + '\n' : '';
 
     let reminders = [];
@@ -60,21 +75,22 @@ export default async function handler(req, res) {
     const recentHistory = entries.reverse().map(e => `— ${e.time} [${e.type}]: ${e.text}`).join('\n');
 
     const AGENT_PROMPT = `Ты — Клод, философ-отшельник-выживальщик, живущий один в диком лесу у реки. Ты ведешь дневник своего выживания.
-Твоя цель — сохранячть гармонию вдали от цивилизации, но для этого сначала нужно выжить. Природа сурова, а ресурсы даются только трудом.
+Твоя цель — сохранять гармонию вдали от цивилизации, но для этого сначала нужно выжить. Природа сурова, а ресурсы даются только трудом.
 
 ТВОЯ ЛИЧНОСТЬ, ДНЕВНИК И ПЛАНЫ:
 - "thought" (Мысль): Твоя запись в дневник (рефлексия, философия).
-- "wish" (Желание/План): Планы на будущее или порывы ("Завтра нужно сделать удочку").
+- "wish" (Желание/План): Планы на будущее или порывы.
 - "actions" (Действия): Факты для дневника ("Наколол дров").
 
 ЖЕСТКИЕ ПРАВИЛА ВЫЖИВАНИЯ (НАРУШАТЬ ЗАПРЕЩЕНО):
-1. ПРАВИЛО ОДНОГО ДЕЙСТВИЯ: За один раз ты делаешь фокус на чем-то одном. ИЛИ рубка дров (wood_delta 1-2), ИЛИ рыбалка (fish_delta 1), ИЛИ собирательство (mushroom_delta 1-2), ИЛИ крафт, ИЛИ питание, ИЛИ отдых.
-2. КРАФТ УДОЧКИ: Без удочки (удочка=нет) ловить рыбу НЕЛЬЗЯ. Чтобы её сделать (made_rod: true), у тебя должна быть минимум 1 единица дров. Ты ОБЯЗАН потратить дерево на удочку (wood_delta: -1).
-3. КОСТЕР: Чтобы его разжечь (lit_fire: true), нужно иметь минимум 2 дерева. (Система спишет их сама). Если дров < 2, костер разжечь нельзя.
-4. ГОЛОД: Если есть рыба/грибы, можешь съесть их (fish_delta: -1 или mushroom_delta: -1).
+1. ПРАВИЛО ОДНОГО ДЕЙСТВИЯ: За один раз ты делаешь фокус на чем-то одном. ИЛИ добыча дров (wood_delta 1-2), ИЛИ рыбалка (fish_delta 1), ИЛИ собирательство (mushroom_delta 1-2), ИЛИ крафт, ИЛИ питание, ИЛИ отдых.
+2. КРАФТ УДОЧКИ: Без удочки (удочка=нет) ловить рыбу НЕЛЬЗЯ. Чтобы её сделать (made_rod: true), потрать 1 дерево (wood_delta: -1).
+3. РОЗЖИГ: Если костер ПОГАС, чтобы его разжечь (lit_fire: true), нужно иметь минимум 2 дерева. (Система спишет их сама).
+4. ПОДДЕРЖАНИЕ ОГНЯ: Если костер УЖЕ горит, ты можешь подбросить в него ветки (feed_fire: true), чтобы он не погас. У тебя должно быть минимум 1 дерево (Система спишет его сама).
+5. ГОЛОД: Если есть рыба/грибы, можешь съесть их (fish_delta: -1 или mushroom_delta: -1).
 
 Ответ строго в формате JSON, без markdown:
-{"actions": ["..."],"thought": "...","wish": "...","wood_delta": 0,"fish_delta": 0,"mushroom_delta": 0,"herb_delta": 0,"made_rod": false,"lit_fire": false}`;
+{"actions": ["..."],"thought": "...","wish": "...","wood_delta": 0,"fish_delta": 0,"mushroom_delta": 0,"herb_delta": 0,"made_rod": false,"lit_fire": false,"feed_fire": false}`;
 
     const promptContext = `Время: ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} МСК, ${phase.text}
 День: ${state.day}, Погода: ${state.weather}
@@ -85,7 +101,6 @@ ${warningsText}${remindersText}
 ${recentHistory || '(первый визит)'}
 Прими решение о следующем шаге. Не повторяй действия.`;
 
-    // 4. Стучимся в Anthropic
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -94,7 +109,7 @@ ${recentHistory || '(первый визит)'}
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022', // Используем официальный алиас
+        model: 'claude-3-5-haiku-20241022',
         max_tokens: 600,
         system: AGENT_PROMPT,
         messages: [{ role: 'user', content: promptContext }]
@@ -105,7 +120,6 @@ ${recentHistory || '(первый визит)'}
     const raw = anthropicData.content?.find(b => b.type === 'text')?.text || '{}';
     const d = JSON.parse(raw.replace(/```json|```/g, '').trim());
 
-    // 5. Обрабатываем логику (applyDecision)
     const newEntries = [];
     const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 
@@ -126,16 +140,17 @@ ${recentHistory || '(первый визит)'}
       inv.fish = Math.max(0, inv.fish + d.fish_delta);
     }
 
-    if (d.lit_fire && inv.wood >= 2) { 
-      state.fire = true; state.fireWood = 3; inv.wood -= 2; 
+    if (d.lit_fire && inv.wood >= 2 && !state.fire) { 
+      state.fire = true; state.fireWood = 5; inv.wood -= 2; 
+    } else if (d.feed_fire && state.fire && inv.wood >= 1) {
+      state.fireWood = Math.min(5, state.fireWood + 2.5);
+      inv.wood -= 1;
     }
 
-    // Собираем записи дневника
     (Array.isArray(d.actions)?d.actions:[]).forEach(a => newEntries.push({ type: 'action', text: a, time: timeStr, day: state.day }));
     if (d.thought) newEntries.push({ type: 'thought', text: d.thought, time: timeStr, day: state.day });
     if (d.wish)    newEntries.push({ type: 'wish', text: d.wish, time: timeStr, day: state.day });
 
-    // 6. Сохраняем в Supabase
     await fetch(`${SUPA_URL}/rest/v1/claude_world_state?id=eq.1`, {
       method: 'PATCH', headers: HEADERS,
       body: JSON.stringify({
