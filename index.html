@@ -956,7 +956,7 @@ async function applyDecision(d) {
       state.fireWood = Math.min(5, state.fireWood + 2.5); // Поднимаем запас, но не выше 5
       inv.wood -= 1;
   }
-
+  }
   (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
     const e = { type:'action', text:a };
     addEntry(e);
