@@ -860,23 +860,24 @@ async function triggerVisit() {
 
 async function applyDecision(d) {
   const inv = state.inv;
+  const newEntries = []; // Объявляем массив СТРОГО в начале!
+
   if (d.wood_delta)     inv.wood     = Math.max(0, inv.wood     + (d.wood_delta||0));
   if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + (d.mushroom_delta||0));
   if (d.herb_delta)     inv.herb     = Math.max(0, inv.herb     + (d.herb_delta||0));
 
-  // Крафт удочки дает ей 10 единиц прочности
+  // Крафт удочки
   if (d.made_rod) {
       inv.rod = 10; 
   }
 
   // Логика рыбалки и поломки
   if (d.fish_delta > 0) {
-      inv.fish += d.fish_delta; // Добавляем пойманную рыбу
-      inv.rod -= 1;             // Тратим 1 единицу прочности за визит на рыбалку
+      inv.fish += d.fish_delta;
+      inv.rod -= 1;
       
       if (inv.rod <= 0) {
           inv.rod = 0;
-          // Автоматическая запись в дневник от лица системы/события
           const breakEvent = { type: 'action', text: 'Удочка с треском сломалась, леска оборвалась. Придется делать новую.' };
           addEntry(breakEvent);
           newEntries.push(breakEvent);
@@ -884,12 +885,13 @@ async function applyDecision(d) {
   } else if (d.fish_delta < 0) {
       // Если он решил съесть рыбу
       inv.fish = Math.max(0, inv.fish + d.fish_delta);
+  } // Блок еды правильно закрыт здесь!
 
-  if (d.lit_fire && inv.wood >= 2) { state.fire = true; state.fireWood = 3; inv.wood -= 2; setFireState(true); }
+  // Логика костра независима и работает всегда
+  if (d.lit_fire && inv.wood >= 2) { 
+      state.fire = true; state.fireWood = 3; inv.wood -= 2; setFireState(true); 
   }
   
-  const newEntries = [];
-
   (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
     const e = { type:'action', text:a };
     addEntry(e);
@@ -941,12 +943,12 @@ let _poseResetTimer = null;
 // ─── ИЗМЕНЕНО: Новые координаты и логика переключения ───
 function setPose(name) {
   if (name === 'fishing') {
-    // Координаты берега: X=3.5, Z=2.5. Смотрит в центр пруда: X=7.5, Z=5
     switchAnimation('fishing', '/models/Fishing Idle.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
   } else if (name === 'typing') {
     switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   } else if (name === 'sleeping') {
-    switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
+    // Подключаем правильную анимацию сна
+    switchAnimation('sleeping', '/models/sleeping-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   } else {
     switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   }
