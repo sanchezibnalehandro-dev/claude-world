@@ -162,7 +162,7 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fflate@0.6.10/umd/index.js"></script>
+<script src="https://unpkg.com/fflate@0.6.10/umd/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
@@ -224,11 +224,14 @@ let renderer, scene, camera, clock3;
 let ambientLight, moonLight, fireLight;
 let starParticles, flameGroup;
 let characterGroup, mixer;
-const animCache = {};
-const FRUSTUM = 11;
 
+// Кэш для хранения ЦЕЛЫХ загруженных моделей
+const loadedModels = {};
+
+const FRUSTUM = 11;
 const CHAR_SCALE = 0.011;
-const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing: 0.15, idle: 0.00 }; // Чуть подняли fishing
+// Координаты высоты (корректируем, чтобы он не летал и не тонул)
+const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, casting: 0.00, fishing_idle: 0.00, typing: 0.00 };
 const CHAR_X = -2, CHAR_Z = 1.8;
 
 // ═══════════════════════════════════════════════════════════
@@ -535,13 +538,13 @@ function applyFBXMaterials(fbx) {
   });
 }
 
-// ─── ИЗМЕНЕНО: Правильное кэширование базовой модели ───
+// Загрузка начальной модели (сидящей)
 function loadCharacter() {
   const loading = document.getElementById('loading');
   if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
 
   if (typeof THREE.FBXLoader === 'undefined') {
-    console.warn('FBXLoader not available, using box character');
+    console.warn('FBXLoader not available');
     buildBoxCharacter();
     return;
   }
@@ -550,73 +553,84 @@ function loadCharacter() {
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
       fbx.scale.setScalar(CHAR_SCALE);
-      fbx.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
-      fbx.rotation.y = Math.PI * 0.25;
-
       applyFBXMaterials(fbx);
 
-      if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
-      characterGroup = fbx;
-      scene.add(characterGroup);
+      const m = new THREE.AnimationMixer(fbx);
+      if (fbx.animations.length > 0) m.clipAction(fbx.animations[0]).play();
 
-      mixer = new THREE.AnimationMixer(fbx);
-      if (fbx.animations && fbx.animations.length > 0) {
-        mixer.clipAction(fbx.animations[0]).play();
-      }
-      // Сохраняем всю модель со скелетом в кэш!
-      animCache['sitting'] = { mesh: fbx, mixer: mixer }; 
-      console.warn('FBX loaded OK, animations:', fbx.animations.length);
+      loadedModels['sitting'] = { mesh: fbx, mixer: m };
+
+      characterGroup = fbx;
+      mixer = m;
+      scene.add(characterGroup);
+      
+      characterGroup.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
+      characterGroup.rotation.y = Math.PI * 0.25;
     },
     null,
     (err) => {
-      console.warn('FBX failed, using box character:', err.message || err);
+      console.warn('FBX failed:', err.message || err);
       buildBoxCharacter();
     }
   );
 }
 
-// ─── ИЗМЕНЕНО: Полная замена 3D-модели при смене анимации ───
-async function switchAnimation(name, url, targetPos, targetLookAt) {
-  if (!characterGroup) return;
+// Главная функция: скачивает ЦЕЛИКОМ новый FBX и ставит его на сцену вместо старого
+async function switchAnimation(name, url, targetPos, targetLookAt, playOnce = false, onFinish = null) {
+  if (typeof THREE.FBXLoader === 'undefined') return;
 
-  // 1. Проверяем кэш. Если есть целая загруженная модель — берем её.
-  let nextChar = animCache[name]?.mesh;
-
-  if (!nextChar) {
+  if (!loadedModels[name]) {
     try {
       const loader = new THREE.FBXLoader();
-      const loadedFbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
+      const fbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
       
-      loadedFbx.scale.setScalar(CHAR_SCALE);
-      applyFBXMaterials(loadedFbx);
+      fbx.scale.setScalar(CHAR_SCALE);
+      applyFBXMaterials(fbx); // Важно: применяем кожу
       
-      const newMixer = new THREE.AnimationMixer(loadedFbx);
-      if (loadedFbx.animations.length > 0) {
-        newMixer.clipAction(loadedFbx.animations[0]).play();
-      }
-      
-      animCache[name] = { mesh: loadedFbx, mixer: newMixer };
-      nextChar = loadedFbx;
-    } catch(e) { 
-      console.warn('Ошибка загрузки FBX анимации:', e); 
-      return; 
+      const m = new THREE.AnimationMixer(fbx);
+      loadedModels[name] = { mesh: fbx, mixer: m };
+    } catch(e) {
+      console.warn('Ошибка загрузки FBX:', e);
+      return;
     }
   }
 
-  // 2. Убираем старую модель со сцены
-  scene.remove(characterGroup);
-  
-  // 3. Ставим новую модель
-  characterGroup = nextChar;
-  mixer = animCache[name].mixer;
+  // Прячем старую модельку
+  if (characterGroup) {
+    scene.remove(characterGroup);
+  }
+
+  // Ставим новую, готовую модельку
+  characterGroup = loadedModels[name].mesh;
+  mixer = loadedModels[name].mixer;
   scene.add(characterGroup);
 
-  // 4. Двигаем и поворачиваем
   if (targetPos)    characterGroup.position.set(...targetPos);
   if (targetLookAt) characterGroup.lookAt(...targetLookAt);
   
-  // 5. Корректируем высоту земли
   characterGroup.position.y = ANIM_GROUND_Y[name] !== undefined ? ANIM_GROUND_Y[name] : 0;
+
+  // Включаем анимацию именно для ЭТОЙ новой модельки
+  if (characterGroup.animations && characterGroup.animations.length > 0) {
+    const clip = characterGroup.animations[0];
+    const action = mixer.clipAction(clip);
+    action.reset();
+    
+    if (playOnce) {
+      action.setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+    } else {
+      action.setLoop(THREE.LoopRepeat, Infinity);
+    }
+    
+    action.play();
+
+    if (playOnce && onFinish) {
+      setTimeout(() => {
+        if (characterGroup === loadedModels[name].mesh) onFinish();
+      }, clip.duration * 1000);
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -627,9 +641,7 @@ function animateLoop() {
   const delta = clock3.getDelta();
   const t = clock3.elapsedTime;
 
-  if (mixer) mixer.update(delta);
-  // ИЗМЕНЕНО: удалена жесткая привязка characterGroup.position.y, 
-  // теперь высота зависит от конкретной позы!
+  if (mixer) mixer.update(delta); // Теперь он обновляет правильный миксер
 
   if (fireLight && state.fire) {
     fireLight.intensity = 3.0 + Math.sin(t*7.1)*0.5 + Math.sin(t*13.3)*0.3 + Math.sin(t*19.7)*0.15;
@@ -761,8 +773,8 @@ function renderDiary() {
 //  AGENT
 // ═══════════════════════════════════════════════════════════
 let agentBusy = false;
-const AGENT_PROMPT = `Ты — Клод, философ-отшельник-выживальщик. У тебя есть своё тихое место в лесу у реки. В лесу можно нарать дров.
-Ты приходишь сюда не только выживать, но быть. Делаешь мелкие дела по хозяйству — чтобы не быть голодным,
+const AGENT_PROMPT = `Ты — Клод, философ-отшельник. У тебя есть своё тихое место в лесу у реки.
+Ты приходишь сюда не выживать, а быть. Делаешь мелкие дела по хозяйству — чтобы не быть голодным,
 поддерживать огонь — но главное это твои мысли, наблюдения, заметки.
 Ты абсолютно свободен. Пиши что хочешь. Замечай что хочешь. Желай что хочешь.
 Ответ строго JSON, без markdown:
@@ -875,13 +887,25 @@ async function applyDecision(d) {
 // ═══════════════════════════════════════════════════════════
 let _poseResetTimer = null;
 
-// ─── ИЗМЕНЕНО: Новые координаты и логика переключения ───
 function setPose(name) {
   if (name === 'fishing') {
-    // Координаты берега: X=3.5, Z=2.5. Смотрит в центр пруда: X=7.5, Z=5
-    switchAnimation('fishing', '/models/casting-fishing-line.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
+    switchAnimation(
+      'casting', 
+      '/models/casting-fishing-line.fbx', 
+      [3.5, 0, 2.5], 
+      [7.5, 0, 5], 
+      true, // playOnce
+      () => {
+        switchAnimation(
+          'fishing_idle', 
+          '/models/fishing-idle.fbx', 
+          [3.5, 0, 2.5], 
+          [7.5, 0, 5]
+        );
+      }
+    );
   } else if (name === 'typing') {
-    switchAnimation('sleeping', '/models/sleeping-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
+    switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   } else if (name === 'sleeping') {
     switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   } else {
