@@ -224,11 +224,11 @@ let renderer, scene, camera, clock3;
 let ambientLight, moonLight, fireLight;
 let starParticles, flameGroup;
 let characterGroup, mixer;
-const loadedModels = {};
+const animCache = {};
 const FRUSTUM = 11;
 
 const CHAR_SCALE = 0.011;
-const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing_idle: 0.00, casting: 0.00, typing: 0.00 };
+const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing: 0.00, idle: 0.00 };
 const CHAR_X = -2, CHAR_Z = 1.8;
 
 // ═══════════════════════════════════════════════════════════
@@ -535,13 +535,12 @@ function applyFBXMaterials(fbx) {
   });
 }
 
-// Загружаем ЕДИНСТВЕННУЮ стартовую фигурку
 function loadCharacter() {
   const loading = document.getElementById('loading');
   if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
 
   if (typeof THREE.FBXLoader === 'undefined') {
-    console.warn('FBXLoader not available');
+    console.warn('FBXLoader not available, using box character');
     buildBoxCharacter();
     return;
   }
@@ -550,6 +549,9 @@ function loadCharacter() {
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
       fbx.scale.setScalar(CHAR_SCALE);
+      fbx.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
+      fbx.rotation.y = Math.PI * 0.25;
+
       applyFBXMaterials(fbx);
 
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
@@ -558,76 +560,47 @@ function loadCharacter() {
 
       mixer = new THREE.AnimationMixer(fbx);
       if (fbx.animations && fbx.animations.length > 0) {
-        mixer.clipAction(fbx.animations[0]).play();
+        const clip = fbx.animations[0];
+        animCache['sitting'] = clip;
+        mixer.clipAction(clip).play();
       }
-
-      loadedModels['sitting'] = { mesh: fbx, mixer: mixer };
-      
-      characterGroup.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
-      characterGroup.rotation.y = Math.PI * 0.25;
+      console.warn('FBX loaded OK, animations:', fbx.animations.length);
     },
     null,
     (err) => {
-      console.warn('FBX failed:', err.message || err);
+      console.warn('FBX failed, using box character:', err.message || err);
       buildBoxCharacter();
     }
   );
 }
 
-// Загружаем целые FBX (модель + анимация) и ставим их на сцену
-async function switchAnimation(name, url, targetPos, targetLookAt, playOnce = false, onFinish = null) {
-  if (typeof THREE.FBXLoader === 'undefined') return;
-
-  if (!loadedModels[name]) {
-    try {
-      const loader = new THREE.FBXLoader();
-      const fbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
-      
-      fbx.scale.setScalar(CHAR_SCALE);
-      applyFBXMaterials(fbx);
-      
-      const m = new THREE.AnimationMixer(fbx);
-      loadedModels[name] = { mesh: fbx, mixer: m };
-    } catch(e) {
-      console.warn('Ошибка загрузки FBX:', e);
-      return;
-    }
-  }
-
-  // Убираем старую модель
-  if (characterGroup) {
-    scene.remove(characterGroup);
-  }
-
-  // Ставим новую
-  characterGroup = loadedModels[name].mesh;
-  mixer = loadedModels[name].mixer;
-  scene.add(characterGroup);
+// Та самая рабочая логика из твоего файла: просто вытаскиваем анимацию
+async function switchAnimation(name, url, targetPos, targetLookAt) {
+  if (!characterGroup || !mixer) return;
 
   if (targetPos)    characterGroup.position.set(...targetPos);
   if (targetLookAt) characterGroup.lookAt(...targetLookAt);
   
   characterGroup.position.y = ANIM_GROUND_Y[name] !== undefined ? ANIM_GROUND_Y[name] : 0;
 
-  if (characterGroup.animations && characterGroup.animations.length > 0) {
-    const clip = characterGroup.animations[0];
-    const action = mixer.clipAction(clip);
-    action.reset();
-    
-    if (playOnce) {
-      action.setLoop(THREE.LoopOnce, 1);
-      action.clampWhenFinished = true;
-    } else {
-      action.setLoop(THREE.LoopRepeat, Infinity);
-    }
-    
-    action.play();
+  if (animCache[name]) {
+    mixer.stopAllAction();
+    mixer.clipAction(animCache[name]).reset().fadeIn(0.5).play();
+    return;
+  }
 
-    if (playOnce && onFinish) {
-      setTimeout(() => {
-        if (characterGroup === loadedModels[name].mesh) onFinish();
-      }, clip.duration * 1000);
+  try {
+    const loader = new THREE.FBXLoader();
+    const loadedFbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
+    
+    const clip = loadedFbx.animations[0];
+    if (clip) {
+      animCache[name] = clip;
+      mixer.stopAllAction();
+      mixer.clipAction(clip).reset().fadeIn(0.5).play();
     }
+  } catch(e) { 
+    console.warn('Ошибка загрузки FBX анимации:', e); 
   }
 }
 
@@ -887,21 +860,8 @@ let _poseResetTimer = null;
 
 function setPose(name) {
   if (name === 'fishing') {
-    switchAnimation(
-      'casting', 
-      '/models/casting-fishing-line.fbx', 
-      [3.5, 0, 2.5], 
-      [7.5, 0, 5],
-      true, // playOnce
-      () => {
-        switchAnimation(
-          'fishing_idle', 
-          '/models/fishing-idle.fbx', 
-          [3.5, 0, 2.5], 
-          [7.5, 0, 5]
-        );
-      }
-    );
+    // Включаем заброс удочки из файла, который ты залил на сервер!
+    switchAnimation('fishing', '/models/casting-fishing-line.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
   } else if (name === 'typing') {
     switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   } else if (name === 'sleeping') {
