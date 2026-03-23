@@ -162,8 +162,10 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fflate@0.6.10/umd/index.js"></script>
+<!-- Мы добавили оба загрузчика с надежного CDN, чтобы грузить и FBX, и GLB -->
+<script src="https://unpkg.com/fflate@0.6.10/umd/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 //  SUPABASE
@@ -224,12 +226,12 @@ let renderer, scene, camera, clock3;
 let ambientLight, moonLight, fireLight;
 let starParticles, flameGroup;
 let characterGroup, mixer;
-
-const loadedModels = {}; 
-
+const animCache = {};
 const FRUSTUM = 11;
+
 const CHAR_SCALE = 0.011;
-const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, casting: 0.00, fishing_idle: 0.10, idle: 0.00 };
+// Координаты высоты для каждой позы
+const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing: 0.00, typing: 0.00 };
 const CHAR_X = -2, CHAR_Z = 1.8;
 
 // ═══════════════════════════════════════════════════════════
@@ -536,6 +538,7 @@ function applyFBXMaterials(fbx) {
   });
 }
 
+// Загружаем нашу ЕДИНСТВЕННУЮ фигурку с текстурами
 function loadCharacter() {
   const loading = document.getElementById('loading');
   if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
@@ -547,20 +550,21 @@ function loadCharacter() {
   }
 
   const loader = new THREE.FBXLoader();
-  // Убеждаемся, что путь точно совпадает
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
       fbx.scale.setScalar(CHAR_SCALE);
       applyFBXMaterials(fbx);
 
-      const m = new THREE.AnimationMixer(fbx);
-      if (fbx.animations.length > 0) m.clipAction(fbx.animations[0]).play();
-
-      loadedModels['sitting'] = { mesh: fbx, mixer: m };
-
+      if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
       characterGroup = fbx;
-      mixer = m;
       scene.add(characterGroup);
+
+      mixer = new THREE.AnimationMixer(fbx);
+      if (fbx.animations && fbx.animations.length > 0) {
+        const clip = fbx.animations[0];
+        animCache['sitting'] = clip; // сохраняем базовую анимацию
+        mixer.clipAction(clip).play();
+      }
       
       characterGroup.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
       characterGroup.rotation.y = Math.PI * 0.25;
@@ -573,58 +577,45 @@ function loadCharacter() {
   );
 }
 
-// ── Логика цепочек анимаций ──
-async function switchAnimation(name, url, targetPos, targetLookAt, playOnce = false, onFinish = null) {
-  if (!loadedModels[name]) {
-    try {
-      const loader = new THREE.FBXLoader();
-      const fbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
-      
-      fbx.scale.setScalar(CHAR_SCALE);
-      applyFBXMaterials(fbx);
-      
-      const m = new THREE.AnimationMixer(fbx);
-      loadedModels[name] = { mesh: fbx, mixer: m };
-    } catch(e) {
-      console.warn('Ошибка загрузки FBX:', e);
-      return;
-    }
-  }
+// Извлекаем движения из GLB-файлов и накладываем на нашу фигурку
+async function switchAnimation(name, url, targetPos, targetLookAt) {
+  if (!characterGroup || !mixer) return;
 
-  if (characterGroup) {
-    scene.remove(characterGroup);
-  }
-
-  characterGroup = loadedModels[name].mesh;
-  mixer = loadedModels[name].mixer;
-  scene.add(characterGroup);
-
+  // Двигаем Клода
   if (targetPos)    characterGroup.position.set(...targetPos);
   if (targetLookAt) characterGroup.lookAt(...targetLookAt);
-  
   characterGroup.position.y = ANIM_GROUND_Y[name] !== undefined ? ANIM_GROUND_Y[name] : 0;
 
-  if (characterGroup.animations.length > 0) {
-    const clip = characterGroup.animations[0];
-    const action = mixer.clipAction(clip);
-    action.reset();
+  // Если движение уже в кэше - плавно включаем
+  if (animCache[name]) {
+    mixer.stopAllAction();
+    mixer.clipAction(animCache[name]).reset().fadeIn(0.5).play();
+    return;
+  }
 
-    if (playOnce) {
-      action.setLoop(THREE.LoopOnce, 1);
-      action.clampWhenFinished = true;
-    } else {
-      action.setLoop(THREE.LoopRepeat, Infinity);
+  try {
+    if (url.endsWith('.glb')) {
+      if (typeof THREE.GLTFLoader === 'undefined') { console.warn('GLTFLoader missing'); return; }
+      const loader = new THREE.GLTFLoader();
+      const gltf = await new Promise((res, rej) => loader.load(url, res, null, rej));
+      const clip = gltf.animations[0];
+      if (clip) {
+        animCache[name] = clip;
+        mixer.stopAllAction();
+        mixer.clipAction(clip).reset().fadeIn(0.5).play();
+      }
+    } else if (url.endsWith('.fbx')) {
+      const loader = new THREE.FBXLoader();
+      const fbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
+      const clip = fbx.animations[0];
+      if (clip) {
+        animCache[name] = clip;
+        mixer.stopAllAction();
+        mixer.clipAction(clip).reset().fadeIn(0.5).play();
+      }
     }
-    
-    action.play();
-
-    if (playOnce && onFinish) {
-      setTimeout(() => {
-        if (characterGroup === loadedModels[name].mesh) {
-          onFinish();
-        }
-      }, clip.duration * 1000);
-    }
+  } catch(e) { 
+    console.warn('Ошибка загрузки анимации:', e); 
   }
 }
 
@@ -882,24 +873,10 @@ async function applyDecision(d) {
 // ═══════════════════════════════════════════════════════════
 let _poseResetTimer = null;
 
-// ── ИЗМЕНЕНО: Пути без пробелов, точно как на сервере ──
 function setPose(name) {
   if (name === 'fishing') {
-    switchAnimation(
-      'casting', 
-      '/models/casting-fishing-line.fbx', 
-      [3.5, 0, 2.5], 
-      [7.5, 0, 5], 
-      true, // playOnce
-      () => {
-        switchAnimation(
-          'fishing_idle', 
-          '/models/fishing-idle.fbx', 
-          [3.5, 0, 2.5], 
-          [7.5, 0, 5]
-        );
-      }
-    );
+    // Включаем анимацию заброса удочки (casting)
+    switchAnimation('casting', '/models/casting-fishing-line.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
   } else if (name === 'typing') {
     switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   } else if (name === 'sleeping') {
