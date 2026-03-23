@@ -841,12 +841,17 @@ function updateNightElements(amb) {
 function updateResources() {
   const inv = state.inv;
   Object.entries({ wood: inv.wood, fish: inv.fish, mush: inv.mushroom, herb: inv.herb }).forEach(([k,v]) => {
-    document.getElementById(`rn-${k}`).textContent = v;
+    const el = document.getElementById(`rn-${k}`);
+    if (el) el.textContent = v;
     document.getElementById(`r-${k}`)?.classList.toggle('has', v > 0);
   });
- // Было: document.getElementById('rn-rod').textContent = inv.rod ? '✓' : '✗';
-  document.getElementById('rn-rod').textContent = inv.rod > 0 ? `${inv.rod}/10` : '✗';
-  document.getElementById('r-rod').classList.toggle('has', inv.rod > 0);
+
+  const rodEl = document.getElementById('rn-rod');
+  if (rodEl) rodEl.textContent = inv.rod > 0 ? `${inv.rod}/10` : '✗';
+  document.getElementById('r-rod')?.classList.toggle('has', inv.rod > 0);
+
+  // СИНХРОНИЗАЦИЯ С 3D: Обновляем поленницу дров
+  updateLogVisuals();
 }
 
 updateLogVisuals();
@@ -991,29 +996,31 @@ async function triggerVisit() {
 
 async function applyDecision(d) {
   const inv = state.inv;
-  const newEntries = []; // Объявляем массив СТРОГО в начале!
+  const newEntries = [];
 
-  if (d.wood_delta)     inv.wood     = Math.max(0, inv.wood     + (d.wood_delta||0));
-  if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + (d.mushroom_delta||0));
-  if (d.herb_delta)     inv.herb     = Math.max(0, inv.herb     + (d.herb_delta||0));
+  // 1. Сбор ресурсов (простая дельта)
+  if (d.wood_delta)     inv.wood     = Math.max(0, inv.wood + (d.wood_delta || 0));
+  if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + (d.mushroom_delta || 0));
+  if (d.herb_delta)     inv.herb     = Math.max(0, inv.herb + (d.herb_delta || 0));
 
-  // Крафт удочки
-  if (d.made_rod) {
+  // 2. Крафт удочки (теперь стоит 1 дерево)
+  if (d.made_rod && inv.wood >= 1) {
       inv.rod = 10; 
+      inv.wood -= 1;
   }
 
-  // Логика рыбалки и поломки
+  // 3. Рыбалка и поломка снастей
   if (d.fish_delta > 0) {
       inv.fish += d.fish_delta;
-      inv.rod -= 1;
-      
+      inv.rod = Math.max(0, inv.rod - 1);
       if (inv.rod <= 0) {
-          inv.rod = 0;
           const breakEvent = { type: 'action', text: 'Удочка с треском сломалась, леска оборвалась. Придется делать новую.' };
           addEntry(breakEvent);
           newEntries.push(breakEvent);
       }
-  // ─── ПОГРЕБ (Перемещение) ───
+  }
+
+  // 4. Погреб (Перемещение ресурсов)
   if (d.cellar_fish_delta > 0 && inv.fish >= d.cellar_fish_delta) {
       inv.fish -= d.cellar_fish_delta; state.cellar.fish += d.cellar_fish_delta;
   } else if (d.cellar_fish_delta < 0 && state.cellar.fish >= Math.abs(d.cellar_fish_delta)) {
@@ -1026,26 +1033,30 @@ async function applyDecision(d) {
       inv.mushroom += Math.abs(d.cellar_mush_delta); state.cellar.mushroom -= Math.abs(d.cellar_mush_delta);
   }
 
-  // ─── ПИТАНИЕ (Готовка) ───
+  // 5. Питание (Готовка рыбы требует огня)
   if (d.cook_fish > 0 && inv.fish >= d.cook_fish) {
       if (state.fire || d.lit_fire) { 
-          inv.fish -= d.cook_fish; // Съел приготовленную рыбу
+          inv.fish -= d.cook_fish; 
       } else {
           newEntries.push({ type: 'action', text: 'Попытался съесть рыбу, но костер погас. Сырую есть не рискнул.' });
       }
   }
   if (d.eat_mush > 0 && inv.mushroom >= d.eat_mush) {
-      inv.mushroom -= d.eat_mush; // Съел сырой гриб
+      inv.mushroom -= d.eat_mush;
   }
 
-  // Логика костра независима и работает всегда
+  // 6. Логика Костра (Теперь работает всегда)
   if (d.lit_fire && inv.wood >= 2 && !state.fire) { 
-      state.fire = true; state.fireWood = 5; inv.wood -= 2; setFireState(true); 
+      state.fire = true; 
+      state.fireWood = 5; 
+      inv.wood -= 2; 
+      setFireState(true); 
   } else if (d.feed_fire && state.fire && inv.wood >= 1) {
-      state.fireWood = Math.min(5, state.fireWood + 2.5); // Поднимаем запас, но не выше 5
+      state.fireWood = Math.min(5, state.fireWood + 2.5);
       inv.wood -= 1;
   }
-  }
+
+  // Обработка текстовых записей
   (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
     const e = { type:'action', text:a };
     addEntry(e);
@@ -1062,9 +1073,11 @@ async function applyDecision(d) {
     newEntries.push(e);
   }
   
-  updateResources();
+  // Важно: Синхронизируем UI и 3D модель
+  updateResources(); 
   document.getElementById('status-text').textContent = 'Клод у костра';
 
+  // Сохранение в Supabase
   try {
     await supaUpdate('claude_world_state', 1, {
       fire: state.fire,
@@ -1074,8 +1087,8 @@ async function applyDecision(d) {
       inv_mushroom: state.inv.mushroom,
       inv_herb: state.inv.herb,
       inv_rod: state.inv.rod,
-      cellar_fish: state.cellar.fish,       // <--- ДОБАВЛЕНО
-      cellar_mushroom: state.cellar.mushroom // <--- ДОБАВЛЕНО
+      cellar_fish: state.cellar.fish,
+      cellar_mushroom: state.cellar.mushroom
     });
 
     for (const e of newEntries) {
@@ -1087,7 +1100,7 @@ async function applyDecision(d) {
       });
     }
   } catch(err) {
-    console.error('Ошибка при сохранении в базу после визита:', err);
+    console.error('Ошибка при сохранении в базу:', err);
   }
 }
 
