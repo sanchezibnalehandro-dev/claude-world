@@ -60,7 +60,13 @@ export default async function handler(req, res) {
     const phase = getPhase(h); const inv = state.inv;
 
     let survivalWarnings = [];
-    if (!state.fire && (h >= 20 || h < 7)) survivalWarnings.push("⚡ УГРОЗА ЖИЗНИ: Ночь, костер погас. Ты замерзаешь. Разведение огня — абсолютный приоритет!");
+   if (!state.fire) {
+      if (h >= 20 || h < 7) {
+          survivalWarnings.push("⚡ КРИТИЧЕСКАЯ УГРОЗА: Ночь, мороз сковывает тело. Без огня ты НЕ ДОЖИВЕШЬ до рассвета. НЕМЕДЛЕННО разжигай костер!");
+      } else {
+          survivalWarnings.push("⚠️ ДИСКОМФОРТ: Костер не горит. Тебе неуютно, ты не можешь приготовить горячую еду. Стоит разжечь огонь, пока есть дрова.");
+      }
+  }
     if (inv.fish === 0 && inv.mushroom === 0) survivalWarnings.push("⚡ УГРОЗА ЖИЗНИ: У тебя совсем нет еды. Ты слабеешь от голода.");
     if (state.fire && state.fireWood < 1.5) {
         survivalWarnings.push("⚠️ ПРЕДУПРЕЖДЕНИЕ: Костер начинает угасать. Пора подбросить дров (feed_fire: true)!");
