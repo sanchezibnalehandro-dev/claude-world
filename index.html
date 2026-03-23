@@ -722,8 +722,9 @@ function updateResources() {
     document.getElementById(`rn-${k}`).textContent = v;
     document.getElementById(`r-${k}`)?.classList.toggle('has', v > 0);
   });
-  document.getElementById('rn-rod').textContent = inv.rod ? '✓' : '✗';
-  document.getElementById('r-rod').classList.toggle('has', !!inv.rod);
+ // Было: document.getElementById('rn-rod').textContent = inv.rod ? '✓' : '✗';
+  document.getElementById('rn-rod').textContent = inv.rod > 0 ? `${inv.rod}/10` : '✗';
+  document.getElementById('r-rod').classList.toggle('has', inv.rod > 0);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -806,6 +807,12 @@ function buildContext() {
   }
   const warningsText = survivalWarnings.length > 0 ? '\nФИЗИЧЕСКОЕ СОСТОЯНИЕ:\n' + survivalWarnings.join('\n') + '\n' : '';
 
+  let reminders = [];
+  if (!state.fire && h >= 18) reminders.push("Вечереет. Стоит развести костер для уюта и тепла.");
+  if (inv.wood < 2) reminders.push("Запас дров маловат. Нужно бы собрать хворост, пока светло.");
+  if (inv.fish > 5) reminders.push("У тебя отличные запасы еды! Можно расслабиться и посвятить время мыслям.");
+  const remindersText = reminders.length > 0 ? '\nМЫСЛИ О БЫТЕ:\n' + reminders.join('\n') + '\n' : '';
+
   const recentHistory = state.entries
     .slice(0, 6)
     .map(e => {
@@ -823,6 +830,7 @@ function buildContext() {
 Запасы: дрова=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod?'есть':'нет'}
 Погреб: рыба=${state.cellar.fish}, грибы=${state.cellar.mushroom}
 ${warningsText}
+${remindersText}
 Последние события и твои записи:
 ${recentHistory || '(первый визит)'}
 
@@ -853,10 +861,30 @@ async function triggerVisit() {
 async function applyDecision(d) {
   const inv = state.inv;
   if (d.wood_delta)     inv.wood     = Math.max(0, inv.wood     + (d.wood_delta||0));
-  if (d.fish_delta)     inv.fish     = Math.max(0, inv.fish     + (d.fish_delta||0));
   if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + (d.mushroom_delta||0));
   if (d.herb_delta)     inv.herb     = Math.max(0, inv.herb     + (d.herb_delta||0));
-  if (d.made_rod)       inv.rod = 1;
+
+  // Крафт удочки дает ей 10 единиц прочности
+  if (d.made_rod) {
+      inv.rod = 10; 
+  }
+
+  // Логика рыбалки и поломки
+  if (d.fish_delta > 0) {
+      inv.fish += d.fish_delta; // Добавляем пойманную рыбу
+      inv.rod -= 1;             // Тратим 1 единицу прочности за визит на рыбалку
+      
+      if (inv.rod <= 0) {
+          inv.rod = 0;
+          // Автоматическая запись в дневник от лица системы/события
+          const breakEvent = { type: 'action', text: 'Удочка с треском сломалась, леска оборвалась. Придется делать новую.' };
+          addEntry(breakEvent);
+          newEntries.push(breakEvent);
+      }
+  } else if (d.fish_delta < 0) {
+      // Если он решил съесть рыбу
+      inv.fish = Math.max(0, inv.fish + d.fish_delta);
+
   if (d.lit_fire && inv.wood >= 2) { state.fire = true; state.fireWood = 3; inv.wood -= 2; setFireState(true); }
 
   const newEntries = [];
