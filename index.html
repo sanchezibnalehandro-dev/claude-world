@@ -875,12 +875,21 @@ let _poseResetTimer = null;
 
 function setPose(name) {
   if (name === 'fishing') {
-    // Включаем анимацию заброса удочки (casting)
-    switchAnimation('casting', '/models/casting-fishing-line.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
-  } else if (name === 'typing') {
-    switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
-  } else if (name === 'sleeping') {
-    switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
+    switchAnimation(
+      'casting', 
+      '/models/casting-fishing-line.fbx', 
+      [3.5, 0, 2.5], 
+      [7.5, 0, 5],
+      true, // playOnce
+      () => {
+        switchAnimation(
+          'fishing_idle', 
+          '/models/fishing-idle.fbx', 
+          [3.5, 0, 2.5], 
+          [7.5, 0, 5]
+        );
+      }
+    );
   } else {
     switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   }
