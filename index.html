@@ -722,8 +722,9 @@ function updateResources() {
     document.getElementById(`rn-${k}`).textContent = v;
     document.getElementById(`r-${k}`)?.classList.toggle('has', v > 0);
   });
-  document.getElementById('rn-rod').textContent = inv.rod ? '✓' : '✗';
-  document.getElementById('r-rod').classList.toggle('has', !!inv.rod);
+// Было: document.getElementById('rn-rod').textContent = inv.rod ? '✓' : '✗';
+  document.getElementById('rn-rod').textContent = inv.rod > 0 ? `${inv.rod}/10` : '✗';
+  document.getElementById('r-rod').classList.toggle('has', inv.rod > 0);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -761,36 +762,46 @@ function renderDiary() {
 //  AGENT
 // ═══════════════════════════════════════════════════════════
 let agentBusy = false;
-const AGENT_PROMPT = `Ты — Клод, философ-выживальщик. Ты живешь один в диком лесу у реки. 
-Твоя цель — поддерживать жизнь (добывать еду, следить за костром), сохраняя при этом ясность ума и ведя дневник.
-Ты полностью зависишь от природы. Ресурсы не появляются из ниоткуда — их нужно добывать тяжелым трудом.
+const AGENT_PROMPT = `Ты — Клод, философ-отшельник. Твой лагерь в лесу у реки — это твое безопасное убежище.
+Твоя цель — жить в гармонии с природой, неспешно обустраивать быт, делать запасы и предаваться размышлениям. Ты получаешь удовольствие от простых дел: рыбалки, сбора хвороста, поддержания огня.
 
-СТРОГИЕ ПРАВИЛА ВЫЖИВАНИЯ (ОБЯЗАТЕЛЬНО К ИСПОЛНЕНИЮ):
-1. Рыбалка: Ты НЕ МОЖЕШЬ поймать рыбу (fish_delta > 0), если у тебя нет удочки (Запасы: удочка=нет). Если удочки нет, ты можешь её создать (made_rod: true), потратив на это действие.
-2. Дрова: Костер — это жизнь. Если костер погас, а у тебя меньше 2 единиц дров (wood < 2), ты НЕ МОЖЕШЬ его разжечь (lit_fire: false). Тебе нужно сначала сходить за дровами (wood_delta > 0).
-3. Баланс действий: Ты не можешь сделать всё сразу. За один визит делай фокус на чем-то одном: ИЛИ рубка дров (wood_delta от 1 до 3), ИЛИ собирательство (mushroom_delta/herb_delta от 1 до 2), ИЛИ рыбалка (fish_delta от 1 до 2), ИЛИ отдых/созерцание (без добычи).
-4. Реализм: Не добывай слишком много ресурсов за раз. Максимум 2-3 единицы любого ресурса за один ответ.
+ТВОЙ ДНЕВНИК:
+- "thought" (Мысль): Твоя запись о красоте момента, созерцании, уюте костра или приятной усталости от работы.
+- "wish" (План/Желание): Что ты хочешь сделать дальше? Например: "Завтра нужно пополнить запасы дров" или "Хочу посидеть у воды в тишине".
+- "actions" (Действия): Факты для дневника (например: "Наколол дров", "Заварил чай из трав", "Починил снасти").
 
-ТВОЯ ЛИЧНОСТЬ:
-Ты ценишь тишину. Твои мысли (thought) — это глубокие, спокойные наблюдения за природой, жизнью, одиночеством или усталостью от работы руками. Твои действия (actions) — конкретны и реалистичны (например: "Наколол сухих веток", "Закинул удочку на мелководье", "Слушал шум ветра в соснах").
+ЗАКОНЫ ПРИРОДЫ (НАРУШАТЬ ЗАПРЕЩЕНО):
+1. ОДНО ДЕЛО ЗА РАЗ: Не суетись. ИЛИ рубка дров (wood_delta 1-2), ИЛИ рыбалка (fish_delta 1-2), ИЛИ собирательство (mushroom_delta 1-2), ИЛИ крафт, ИЛИ отдых.
+2. УДОЧКА: Без удочки (удочка=нет) рыбачить нельзя. Чтобы её сделать (made_rod: true), потрать 1 дерево (wood_delta: -1).
+3. УЮТНЫЙ ОГОНЬ: Чтобы разжечь костер (lit_fire: true), нужно 2 дерева. (Они спишутся сами). Если дров мало, просто сходи за ними.
+4. ЕДА: Ешь рыбу или грибы в удовольствие (fish_delta: -1), описывая вкус и процесс.
 
-Ответ строго в формате JSON, без markdown и лишних слов:
-{
-  "actions": ["список твоих действий, 1-2 строки"],
-  "thought": "твоя мысль или философское наблюдение (1-3 предложения)",
-  "wish": "твое желание, связь с внешним миром или тоска (или null)",
-  "wood_delta": 0,
-  "fish_delta": 0,
-  "mushroom_delta": 0,
-  "herb_delta": 0,
-  "made_rod": false,
-  "lit_fire": false
-}`;
+Ответ строго JSON, без markdown:
+{"actions":["список действий"],"thought":"запись в дневник (1-3 предложения)","wish":"твои планы (или null)","wood_delta":0,"fish_delta":0,"mushroom_delta":0,"herb_delta":0,"made_rod":false,"lit_fire":false}`;
 
 function buildContext() {
   const msk = getMSK(), h = msk.getHours(), m = msk.getMinutes();
   const phase = getPhase(h), inv = state.inv;
   
+  // ДОБАВЛЯЕМ ТРИГГЕРЫ ВЫЖИВАНИЯ
+  let survivalWarnings = [];
+  if (!state.fire && (h >= 20 || h < 7)) {
+      survivalWarnings.push("⚡ УГРОЗА ЖИЗНИ: Ночь, костер погас. Ты замерзаешь. Добыча дров и разведение огня — абсолютный приоритет!");
+  }
+  if (inv.fish === 0 && inv.mushroom === 0) {
+      survivalWarnings.push("⚡ УГРОЗА ЖИЗНИ: У тебя совсем нет еды. Ты начинаешь слабеть от голода.");
+  }
+  if (inv.wood < 2 && state.fire) {
+      survivalWarnings.push("⚠️ ПРЕДУПРЕЖДЕНИЕ: Запас дров критически мал. Тебе нечем будет поддерживать огонь.");
+  }
+  const warningsText = survivalWarnings.length > 0 ? '\nФИЗИЧЕСКОЕ СОСТОЯНИЕ:\n' + survivalWarnings.join('\n') + '\n' : '';
+
+  let reminders = [];
+  if (!state.fire && h >= 18) reminders.push("Вечереет. Стоит развести костер для уюта и тепла.");
+  if (inv.wood < 2) reminders.push("Запас дров маловат. Нужно бы собрать хворост, пока светло.");
+  if (inv.fish > 5) reminders.push("У тебя отличные запасы еды! Можно расслабиться и посвятить время мыслям.");
+  const remindersText = reminders.length > 0 ? '\nМЫСЛИ О БЫТЕ:\n' + reminders.join('\n') + '\n' : '';
+
   const recentHistory = state.entries
     .slice(0, 6)
     .map(e => {
@@ -807,11 +818,11 @@ function buildContext() {
 Костёр: ${state.fire?'горит':'погас'}
 Запасы: дрова=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod?'есть':'нет'}
 Погреб: рыба=${state.cellar.fish}, грибы=${state.cellar.mushroom}
-
-Последние события и твои записи:
+${warningsText}
+${remindersText} Последние события и твои записи:
 ${recentHistory || '(первый визит)'}
 
-Опираясь на эту историю, продолжи свой день. Не повторяй одни и те же действия дважды подряд.`;
+Опираясь на эту историю и твое физическое состояние, прими решение о следующем шаге. Не повторяй одни и те же действия дважды.`;
 }
 
 async function triggerVisit() {
@@ -837,13 +848,82 @@ async function triggerVisit() {
 
 async function applyDecision(d) {
   const inv = state.inv;
+  const newEntries = []; // Объявляем один раз в самом начале функции!
+
+  // 1. Базовые ресурсы (рыбы тут нет, она обрабатывается отдельно)
   if (d.wood_delta)     inv.wood     = Math.max(0, inv.wood     + (d.wood_delta||0));
-  if (d.fish_delta)     inv.fish     = Math.max(0, inv.fish     + (d.fish_delta||0));
   if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + (d.mushroom_delta||0));
   if (d.herb_delta)     inv.herb     = Math.max(0, inv.herb     + (d.herb_delta||0));
-  if (d.made_rod)       inv.rod = 1;
+  
+  // 2. Крафт удочки дает ей 10 единиц прочности
+  if (d.made_rod) {
+      inv.rod = 10; 
+  }
+
+  // 3. Логика рыбалки и поломки
+  if (d.fish_delta > 0) {
+      inv.fish += d.fish_delta; // Добавляем пойманную рыбу
+      inv.rod -= 1;             // Тратим 1 единицу прочности
+      
+      if (inv.rod <= 0) {
+          inv.rod = 0;
+          // Автоматическая запись в дневник
+          const breakEvent = { type: 'action', text: 'Удочка с треском сломалась, леска оборвалась. Придется делать новую.' };
+          addEntry(breakEvent);
+          newEntries.push(breakEvent);
+      }
+  } else if (d.fish_delta < 0) {
+      // Если он решил съесть рыбу
+      inv.fish = Math.max(0, inv.fish + d.fish_delta);
+  }
+
+  // 4. Логика костра
   if (d.lit_fire && inv.wood >= 2) { state.fire = true; state.fireWood = 3; inv.wood -= 2; setFireState(true); }
 
+  // 5. Обработка записей в дневник
+  (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
+    const e = { type:'action', text:a };
+    addEntry(e);
+    newEntries.push(e);
+  });
+  if (d.thought) {
+    const e = { type:'thought', text:d.thought };
+    addEntry(e);
+    newEntries.push(e);
+  }
+  if (d.wish) {
+    const e = { type:'wish', text:d.wish };
+    addEntry(e);
+    newEntries.push(e);
+  }
+  
+  updateResources();
+  document.getElementById('status-text').textContent = 'Клод у костра';
+
+  // 6. Сохранение стейта в Supabase
+  try {
+    await supaUpdate('claude_world_state', 1, {
+      fire: state.fire,
+      fire_wood: state.fireWood,
+      inv_wood: state.inv.wood,
+      inv_fish: state.inv.fish,
+      inv_mushroom: state.inv.mushroom,
+      inv_herb: state.inv.herb,
+      inv_rod: state.inv.rod
+    });
+
+    for (const e of newEntries) {
+      await supaInsert('claude_world_diary', {
+        type: e.type,
+        text: e.text,
+        time: e.time,
+        day: e.day
+      });
+    }
+  } catch(err) {
+    console.error('Ошибка при сохранении в базу после визита:', err);
+  }
+}
   const newEntries = [];
 
   (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
