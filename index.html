@@ -243,8 +243,8 @@ function loadMushroomPack() {
   loader.load('/models/mushrooms.glb', (gltf) => {
     gltf.scene.traverse((child) => {
       if (child.isMesh) {
-        // 1. Поворачиваем гриб "на ноги" (компенсируем экспорт из Blender)
-        child.geometry.rotateX(Math.PI / 2); 
+        // 1. Поворачиваем гриб "на ноги"
+        child.geometry.rotateX(-Math.PI / 2);
         
         // 2. Считаем его новые физические границы после поворота
         child.geometry.computeBoundingBox();
