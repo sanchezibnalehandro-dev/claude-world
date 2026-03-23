@@ -858,7 +858,7 @@ async function triggerVisit() {
   agentBusy = false; btn.disabled = false; btn.textContent = '▶ ВИЗИТ АГЕНТА'; st.textContent = 'Клод у костра';
 }
 
-async function applyDecision(d) 
+async function applyDecision(d) {
   const inv = state.inv;
   if (d.wood_delta)     inv.wood     = Math.max(0, inv.wood     + (d.wood_delta||0));
   if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + (d.mushroom_delta||0));
@@ -886,7 +886,8 @@ async function applyDecision(d)
       inv.fish = Math.max(0, inv.fish + d.fish_delta);
 
   if (d.lit_fire && inv.wood >= 2) { state.fire = true; state.fireWood = 3; inv.wood -= 2; setFireState(true); }
-
+  }
+  
   const newEntries = [];
 
   (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
