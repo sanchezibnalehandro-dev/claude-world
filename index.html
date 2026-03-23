@@ -236,6 +236,8 @@ const CHAR_X = -2, CHAR_Z = 1.8;
 //  GLTF PACK LOADER
 // ═══════════════════════════════════════════════════════════
 const mushroomPrefabs = [];
+let logPrefab = null;
+let logPileGroup;
 let worldMushroomsGroup; // Группа, в которой будут расти все наши грибы
 
 function loadMushroomPack() {
@@ -296,12 +298,58 @@ function spawnRandomMushroom(x, z, group) {
   clone.position.set(x, 0, z); 
   
   // Уменьшаем масштаб в 20 раз (если все еще большие - поставь 0.02, если стали мелкие - 0.1)
-  clone.scale.setScalar(0.3); 
+  clone.scale.setScalar(0.25); 
   
   // Теперь гриб стоит вертикально, можем крутить его вправо-влево вокруг своей оси
   clone.rotation.y = Math.random() * Math.PI * 2; 
   
   group.add(clone);
+}
+// ═══════════════════════════════════════════════════════════
+//  LOG PILE LOGIC (Умная поленница)
+// ═══════════════════════════════════════════════════════════
+function loadLogModel() {
+  const loader = new THREE.GLTFLoader();
+  loader.load('/models/log_seat.glb', (gltf) => {
+    gltf.scene.traverse((child) => {
+      if (child.isMesh) {
+        // Ставим на бок и центрируем
+        child.geometry.rotateX(-Math.PI / 2);
+        child.geometry.computeBoundingBox();
+        const center = new THREE.Vector3();
+        child.geometry.boundingBox.getCenter(center);
+        child.geometry.translate(-center.x, -child.geometry.boundingBox.min.y, -center.z);
+        child.castShadow = true;
+        child.receiveShadow = true;
+        logPrefab = child;
+      }
+    });
+    logPileGroup = new THREE.Group();
+    logPileGroup.position.set(2.5, 0, -1.5); // Ставим на место старой статичной кучи
+    scene.add(logPileGroup);
+    updateLogVisuals(); 
+  });
+}
+
+function updateLogVisuals() {
+  if (!logPrefab || !logPileGroup) return;
+  while(logPileGroup.children.length > 0) { logPileGroup.remove(logPileGroup.children[0]); }
+
+  const count = state.inv.wood || 0;
+  for (let i = 0; i < count; i++) {
+    const log = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
+    log.scale.setScalar(0.005); // Масштаб для log_seat.glb
+    log.rotation.z = Math.PI / 2; 
+
+    // Раскладка пирамидкой
+    let x = 0, y = 0, z = 0;
+    if (i < 3) { x = i * 0.35; } 
+    else if (i < 5) { x = (i - 3) * 0.35 + 0.17; y = 0.2; } 
+    else { x = 0.35; y = 0.4; }
+
+    log.position.set(x, y, z);
+    logPileGroup.add(log);
+  }
 }
 // ═══════════════════════════════════════════════════════════
 //  INIT THREE.JS
@@ -339,6 +387,7 @@ function initThree() {
   buildScene();
   loadCharacter();
   loadMushroomPack();
+  loadLogModel();
   animateLoop();
 }
 
@@ -799,6 +848,8 @@ function updateResources() {
   document.getElementById('rn-rod').textContent = inv.rod > 0 ? `${inv.rod}/10` : '✗';
   document.getElementById('r-rod').classList.toggle('has', inv.rod > 0);
 }
+
+updateLogVisuals();
 
 // ═══════════════════════════════════════════════════════════
 //  DIARY
