@@ -846,7 +846,7 @@ async function triggerVisit() {
     const res = await fetch('/api/agent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 600, system: AGENT_PROMPT, messages: [{ role: 'user', content: buildContext() }] })
+      body: JSON.stringify({ model: 'claude-3-5-haiku-20241022', max_tokens: 600, system: AGENT_PROMPT, messages: [{ role: 'user', content: buildContext() }] })
     });
     const data = await res.json();
     const raw = data.content?.find(b=>b.type==='text')?.text || '{}';
