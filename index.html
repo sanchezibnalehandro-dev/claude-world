@@ -949,7 +949,9 @@ async function applyDecision(d) {
       inv_fish: state.inv.fish,
       inv_mushroom: state.inv.mushroom,
       inv_herb: state.inv.herb,
-      inv_rod: state.inv.rod
+      inv_rod: state.inv.rod,
+      cellar_fish: state.cellar.fish,       // <--- ДОБАВЛЕНО
+      cellar_mushroom: state.cellar.mushroom // <--- ДОБАВЛЕНО
     });
 
     for (const e of newEntries) {
