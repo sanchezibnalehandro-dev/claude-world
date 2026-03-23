@@ -761,8 +761,8 @@ function renderDiary() {
 //  AGENT
 // ═══════════════════════════════════════════════════════════
 let agentBusy = false;
-const AGENT_PROMPT = `Ты — Клод, философ-отшельник. У тебя есть своё тихое место в лесу у реки.
-Ты приходишь сюда не выживать, а быть. Делаешь мелкие дела по хозяйству — чтобы не быть голодным,
+const AGENT_PROMPT = `Ты — Клод, философ-отшельник-выживальщик. У тебя есть своё тихое место в лесу у реки. В лесу можно нарать дров.
+Ты приходишь сюда не только выживать, но быть. Делаешь мелкие дела по хозяйству — чтобы не быть голодным,
 поддерживать огонь — но главное это твои мысли, наблюдения, заметки.
 Ты абсолютно свободен. Пиши что хочешь. Замечай что хочешь. Желай что хочешь.
 Ответ строго JSON, без markdown:
@@ -879,9 +879,9 @@ let _poseResetTimer = null;
 function setPose(name) {
   if (name === 'fishing') {
     // Координаты берега: X=3.5, Z=2.5. Смотрит в центр пруда: X=7.5, Z=5
-    switchAnimation('fishing', '/models/Fishing Idle.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
+    switchAnimation('fishing', '/models/casting-fishing-line.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
   } else if (name === 'typing') {
-    switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
+    switchAnimation('sleeping', '/models/sleeping-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   } else if (name === 'sleeping') {
     switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
   } else {
