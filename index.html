@@ -340,7 +340,7 @@ function updateLogVisuals() {
   const count = state.inv.wood || 0;
   for (let i = 0; i < count; i++) {
     const log = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
-    log.scale.setScalar(0.05); // Масштаб для log_seat.glb
+    log.scale.setScalar(0.005); // Масштаб для log_seat.glb
     log.rotation.z = Math.PI / 2; 
 
     // Раскладка пирамидкой
