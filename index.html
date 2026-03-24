@@ -71,7 +71,58 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
 .res-chip { font-size: 15px; color: var(--text-dim); display: flex; align-items: center; gap: 4px; transition: color .3s; }
 .res-chip.has { color: var(--text); }
 .res-n { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); min-width: 16px; }
+#needs-panel {
+  padding: 12px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
 
+.needs-title {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.need-row {
+  margin-bottom: 10px;
+}
+
+.need-row:last-child {
+  margin-bottom: 0;
+}
+
+.need-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.need-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(140,100,40,0.18);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.need-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width .35s ease;
+}
+
+.need-fill-hunger  { background: linear-gradient(90deg, #7a3f14, #d26a1e); }
+.need-fill-cold    { background: linear-gradient(90deg, #305a7a, #6aa7d8); }
+.need-fill-fatigue { background: linear-gradient(90deg, #6b4c1b, #c89a4a); }
+.need-fill-spirit  { background: linear-gradient(90deg, #4d6b3a, #8ebc63); }
 #diary-scroll { flex: 1; overflow-y: auto; padding: 0; scrollbar-width: thin; scrollbar-color: #3a2a10 transparent; }
 #diary-scroll::-webkit-scrollbar { width: 3px; }
 #diary-scroll::-webkit-scrollbar-thumb { background: #3a2a10; }
@@ -147,6 +198,49 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
     <div class="res-chip" id="r-rod" title="Удочка">🎣 <span class="res-n" id="rn-rod">✗</span></div>
     <div class="res-chip" id="r-fire" title="Костёр">🔥 <span class="res-n" id="rn-fire" style="font-size:10px">погас</span></div>
   </div>
+    <div id="needs-panel">
+    <div class="needs-title">СОСТОЯНИЕ</div>
+
+    <div class="need-row">
+      <div class="need-head">
+        <span>🍖 Голод</span>
+        <span id="need-hunger-value">20/100</span>
+      </div>
+      <div class="need-bar">
+        <div class="need-fill need-fill-hunger" id="need-hunger-fill"></div>
+      </div>
+    </div>
+
+    <div class="need-row">
+      <div class="need-head">
+        <span>🥶 Холод</span>
+        <span id="need-cold-value">10/100</span>
+      </div>
+      <div class="need-bar">
+        <div class="need-fill need-fill-cold" id="need-cold-fill"></div>
+      </div>
+    </div>
+
+    <div class="need-row">
+      <div class="need-head">
+        <span>😮‍💨 Усталость</span>
+        <span id="need-fatigue-value">15/100</span>
+      </div>
+      <div class="need-bar">
+        <div class="need-fill need-fill-fatigue" id="need-fatigue-fill"></div>
+      </div>
+    </div>
+
+    <div class="need-row">
+      <div class="need-head">
+        <span>🕯️ Дух</span>
+        <span id="need-spirit-value">70/100</span>
+      </div>
+      <div class="need-bar">
+        <div class="need-fill need-fill-spirit" id="need-spirit-fill"></div>
+      </div>
+    </div>
+  </div>
   <div id="diary-scroll"><div id="diary-entries"></div></div>
   <div id="agent-status">
     <div id="status-action">
@@ -217,7 +311,13 @@ const state = {
   cellar: { fish: 0, mushroom: 0 },
   entries: [],
   lastVisit: null,
-  summary: ''
+  summary: '',
+  needs: {
+    hunger: 20,
+    cold: 10,
+    fatigue: 15,
+    spirit: 70
+  }
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -860,6 +960,7 @@ function updateResources() {
 
   // СИНХРОНИЗАЦИЯ С 3D: Обновляем поленницу дров
   updateLogVisuals();
+  updateNeedsUI();
 }
 
 updateLogVisuals();
@@ -894,7 +995,155 @@ function renderDiary() {
   });
   container.innerHTML = html;
 }
+// ═══════════════════════════════════════════════════════════
+//  NEEDS / INNER STATE
+// ═══════════════════════════════════════════════════════════
+function clampNeed(v) {
+  return Math.max(0, Math.min(100, Math.round(v)));
+}
 
+function describeNeed(name, value) {
+  if (name === 'hunger') {
+    if (value < 20) return 'почти не беспокоит';
+    if (value < 40) return 'слегка напоминает о себе';
+    if (value < 60) return 'уже ощутим';
+    if (value < 80) return 'мешает думать';
+    return 'становится мучительным';
+  }
+
+  if (name === 'cold') {
+    if (value < 20) return 'телу спокойно';
+    if (value < 40) return 'слегка зябко';
+    if (value < 60) return 'холод пробирается под одежду';
+    if (value < 80) return 'мерзнешь всерьез';
+    return 'холод становится опасным';
+  }
+
+  if (name === 'fatigue') {
+    if (value < 20) return 'тело бодрое';
+    if (value < 40) return 'есть легкая усталость';
+    if (value < 60) return 'сил заметно меньше';
+    if (value < 80) return 'тяжело заставлять себя работать';
+    return 'тело просит остановиться';
+  }
+
+  if (name === 'spirit') {
+    if (value < 20) return 'внутри почти темно';
+    if (value < 40) return 'держишься с трудом';
+    if (value < 60) return 'настроение неровное';
+    if (value < 80) return 'в целом держишься';
+    return 'внутри есть опора';
+  }
+
+  return '';
+}
+
+function updateNeedsUI() {
+  const n = state.needs;
+
+  const map = [
+    ['hunger', 'need-hunger-fill', 'need-hunger-value'],
+    ['cold', 'need-cold-fill', 'need-cold-value'],
+    ['fatigue', 'need-fatigue-fill', 'need-fatigue-value'],
+    ['spirit', 'need-spirit-fill', 'need-spirit-value']
+  ];
+
+  map.forEach(([key, fillId, valueId]) => {
+    const fill = document.getElementById(fillId);
+    const value = document.getElementById(valueId);
+    if (!fill || !value) return;
+
+    fill.style.width = `${state.needs[key]}%`;
+    value.textContent = `${state.needs[key]}/100`;
+  });
+}
+
+function updateNeeds(d) {
+  const n = state.needs;
+  const h = getMSK().getHours();
+
+  // Базовое течение времени
+  n.hunger += 8;
+  n.fatigue += 4;
+
+  // Погода и температура
+  if (state.weather === 'rain') n.cold += 4;
+  if (state.weather === 'storm') n.cold += 7;
+
+  if (state.fire) {
+    n.cold -= 8;
+  } else if (h >= 18 || h < 7) {
+    n.cold += 10;
+  } else {
+    n.cold += 3;
+  }
+
+  // Практические действия
+  if (d.wood_delta > 0) {
+    n.fatigue += 8;
+    n.spirit -= 1;
+  }
+
+  if (d.fish_delta > 0) {
+    n.fatigue += 5;
+    n.spirit += 1;
+  }
+
+  if (d.mushroom_delta > 0) {
+    n.fatigue += 3;
+    n.spirit += 1;
+  }
+
+  if (d.made_rod) {
+    n.fatigue += 2;
+    n.spirit += 2;
+  }
+
+  if (d.lit_fire) {
+    n.cold -= 18;
+    n.spirit += 6;
+  } else if (d.feed_fire) {
+    n.cold -= 8;
+    n.spirit += 3;
+  }
+
+  if (d.cook_fish > 0) {
+    n.hunger -= 30 * d.cook_fish;
+    n.spirit += 4;
+  }
+
+  if (d.eat_mush > 0) {
+    n.hunger -= 14 * d.eat_mush;
+  }
+
+  const didPracticalAction = Boolean(
+    (d.wood_delta && d.wood_delta > 0) ||
+    (d.fish_delta && d.fish_delta > 0) ||
+    (d.mushroom_delta && d.mushroom_delta > 0) ||
+    d.made_rod ||
+    d.lit_fire ||
+    d.feed_fire ||
+    (d.cook_fish && d.cook_fish > 0) ||
+    (d.cellar_fish_delta && d.cellar_fish_delta !== 0) ||
+    (d.cellar_mush_delta && d.cellar_mush_delta !== 0)
+  );
+
+  // Если день был спокойный, без явной тяжелой работы
+  if (!didPracticalAction) {
+    n.fatigue -= 4;
+    n.spirit += 5;
+  }
+
+  // Тяжелые состояния давят на дух
+  if (n.hunger > 70) n.spirit -= 6;
+  if (n.cold > 70) n.spirit -= 8;
+  if (n.fatigue > 80) n.spirit -= 5;
+
+  n.hunger = clampNeed(n.hunger);
+  n.cold = clampNeed(n.cold);
+  n.fatigue = clampNeed(n.fatigue);
+  n.spirit = clampNeed(n.spirit);
+}
 // ═══════════════════════════════════════════════════════════
 //  AGENT
 // ═══════════════════════════════════════════════════════════
@@ -916,6 +1165,17 @@ const AGENT_PROMPT = `Ты — Клод, философ-отшельник. Ты
 --- СИСТЕМА ПАМЯТИ ---
 - "new_summary": Это твоя "долгая память". Если день закончился или произошло нечто важное (сломал удочку, чуть не замерз), запиши это сюда кратко (2-3 предложения). Это то, что ты будешь помнить завтра и через неделю.
 
+--- ВНУТРЕННИЕ СОСТОЯНИЯ ---
+Тебе передаются 4 внутренних состояния: hunger, cold, fatigue, spirit.
+Они не приказывают тебе напрямую, а создают давление.
+
+- Высокий hunger обычно толкает к добыче или приготовлению еды.
+- Высокий cold обычно толкает к огню, теплу и дровам.
+- Высокий fatigue делает тяжелую работу менее желанной.
+- Низкий spirit делает мысли тяжелее и влияет на выбор.
+
+Ты сохраняешь свободу выбора.
+Но если игнорируешь сильную потребность, это должно ощущаться в thought.
 --- ЛИЧНОСТЬ И СТИЛЬ ---
 Пиши как человек, который привык к тишине. Твои мысли (thought) — это смесь наблюдений за природой и внутренней борьбы. Твои планы (wish) — это то, к чему ты стремишься.
 
@@ -937,7 +1197,7 @@ function buildContext() {
   const m = msk.getMinutes();
   const phase = getPhase(h);
   const inv = state.inv;
-
+  const needs = state.needs;
   const weatherLabel = {
     clear: 'ясно',
     cloudy: 'облачно',
@@ -946,6 +1206,12 @@ function buildContext() {
   }[state.weather] || state.weather;
 
   const longTermMemory = state.summary || 'Я только начал свой путь в этом лесу. Прошлых записей нет.';
+  const innerStateText = [
+  `Голод: ${needs.hunger}/100 — ${describeNeed('hunger', needs.hunger)}`,
+  `Холод: ${needs.cold}/100 — ${describeNeed('cold', needs.cold)}`,
+  `Усталость: ${needs.fatigue}/100 — ${describeNeed('fatigue', needs.fatigue)}`,
+  `Дух: ${needs.spirit}/100 — ${describeNeed('spirit', needs.spirit)}`
+].join('\n');
 
   const recentHistory = state.entries
     .slice(0, 6)
@@ -960,7 +1226,8 @@ ${longTermMemory}
 День: ${state.day}, Погода: ${weatherLabel}
 Инвентарь: дерево=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod > 0 ? inv.rod + '/10' : 'нет'}, костёр=${state.fire ? 'горит' : 'погас'}
 Погреб: рыба=${state.cellar.fish}, грибы=${state.cellar.mushroom}
-
+ВНУТРЕННЕЕ СОСТОЯНИЕ:
+${innerStateText}
 ПОСЛЕДНИЕ СОБЫТИЯ (Краткосрочная память):
 ${recentHistory}
 
@@ -1068,6 +1335,8 @@ async function applyDecision(d) {
       state.fireWood = Math.min(5, state.fireWood + 2.5);
       inv.wood -= 1;
   }
+  // 7. Обновление внутренних состояний
+  updateNeeds(d);
 
   // Обработка текстовых записей
   (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
@@ -1096,7 +1365,7 @@ async function applyDecision(d) {
 
   // Сохранение в Supabase
   try {
-    await supaUpdate('claude_world_state', 1, {
+        await supaUpdate('claude_world_state', 1, {
       fire: state.fire,
       fire_wood: state.fireWood,
       inv_wood: state.inv.wood,
@@ -1106,7 +1375,11 @@ async function applyDecision(d) {
       inv_rod: state.inv.rod,
       cellar_fish: state.cellar.fish,
       cellar_mushroom: state.cellar.mushroom,
-      summary: state.summary
+      summary: state.summary,
+      hunger: state.needs.hunger,
+      cold: state.needs.cold,
+      fatigue: state.needs.fatigue,
+      spirit: state.needs.spirit
     });
 
     for (const e of newEntries) {
@@ -1174,6 +1447,10 @@ async function pollFiles() {
       
       // ВОТ ЭТО МЫ ПРОПУСТИЛИ: забираем память из базы в стейт
       state.summary = s.summary ?? state.summary; 
+      state.needs.hunger = s.hunger ?? state.needs.hunger;
+      state.needs.cold = s.cold ?? state.needs.cold;
+      state.needs.fatigue = s.fatigue ?? state.needs.fatigue;
+      state.needs.spirit = s.spirit ?? state.needs.spirit;
 
       updateResources(); updateClock(); setFireState(state.fire);
     }
