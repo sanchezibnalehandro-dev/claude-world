@@ -26,6 +26,141 @@ export default async function handler(req, res) {
     return { text: '🌑 Ночь' };
   }
 
+  function clampNeed(v) {
+    return Math.max(0, Math.min(100, Math.round(v)));
+  }
+
+  function describeNeed(name, value) {
+    if (name === 'hunger') {
+      if (value < 20) return 'почти не беспокоит';
+      if (value < 40) return 'слегка напоминает о себе';
+      if (value < 60) return 'уже ощутим';
+      if (value < 80) return 'мешает думать';
+      return 'становится мучительным';
+    }
+
+    if (name === 'cold') {
+      if (value < 20) return 'телу спокойно';
+      if (value < 40) return 'слегка зябко';
+      if (value < 60) return 'холод пробирается под одежду';
+      if (value < 80) return 'мерзнешь всерьез';
+      return 'холод становится опасным';
+    }
+
+    if (name === 'fatigue') {
+      if (value < 20) return 'тело бодрое';
+      if (value < 40) return 'есть легкая усталость';
+      if (value < 60) return 'сил заметно меньше';
+      if (value < 80) return 'тяжело заставлять себя работать';
+      return 'тело просит остановиться';
+    }
+
+    if (name === 'spirit') {
+      if (value < 20) return 'внутри почти темно';
+      if (value < 40) return 'держишься с трудом';
+      if (value < 60) return 'настроение неровное';
+      if (value < 80) return 'в целом держишься';
+      return 'внутри есть опора';
+    }
+
+    return '';
+  }
+
+  function updateNeeds(state, d) {
+    const n = state.needs;
+    const h = getMSK().getHours();
+
+    n.hunger += 8;
+    n.fatigue += 4;
+
+    if (state.weather === 'rain') n.cold += 4;
+    if (state.weather === 'storm') n.cold += 7;
+
+    if (state.fire) {
+      n.cold -= 8;
+    } else if (h >= 18 || h < 7) {
+      n.cold += 10;
+    } else {
+      n.cold += 3;
+    }
+
+    if (d.wood_delta > 0) {
+      n.fatigue += 8;
+      n.spirit -= 1;
+    }
+
+    if (d.fish_delta > 0) {
+      n.fatigue += 5;
+      n.spirit += 1;
+    }
+
+    if (d.mushroom_delta > 0) {
+      n.fatigue += 3;
+      n.spirit += 1;
+    }
+
+    if (d.made_rod) {
+      n.fatigue += 2;
+      n.spirit += 2;
+    }
+
+    if (d.lit_fire) {
+      n.cold -= 18;
+      n.spirit += 6;
+    } else if (d.feed_fire) {
+      n.cold -= 8;
+      n.spirit += 3;
+    }
+
+    if (d.cook_fish > 0) {
+      n.hunger -= 30 * d.cook_fish;
+      n.spirit += 4;
+    }
+
+    if (d.eat_mush > 0) {
+      n.hunger -= 14 * d.eat_mush;
+    }
+
+    const didPracticalAction = Boolean(
+      (d.wood_delta && d.wood_delta > 0) ||
+      (d.fish_delta && d.fish_delta > 0) ||
+      (d.mushroom_delta && d.mushroom_delta > 0) ||
+      d.made_rod ||
+      d.lit_fire ||
+      d.feed_fire ||
+      (d.cook_fish && d.cook_fish > 0) ||
+      (d.cellar_fish_delta && d.cellar_fish_delta !== 0) ||
+      (d.cellar_mush_delta && d.cellar_mush_delta !== 0)
+    );
+
+    if (!didPracticalAction) {
+      n.fatigue -= 4;
+      n.spirit += 5;
+    }
+
+    if (n.hunger > 70) n.spirit -= 6;
+    if (n.cold > 70) n.spirit -= 8;
+    if (n.fatigue > 80) n.spirit -= 5;
+
+    n.hunger = clampNeed(n.hunger);
+    n.cold = clampNeed(n.cold);
+    n.fatigue = clampNeed(n.fatigue);
+    n.spirit = clampNeed(n.spirit);
+  }
+
+  function extractAgentPayload(rawText) {
+    const cleaned = String(rawText || '').replace(/```json|```/g, '').trim();
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error('В ответе агента не найден корректный JSON-объект');
+    }
+
+    const candidate = cleaned.slice(start, end + 1);
+    return JSON.parse(candidate);
+  }
+
   async function fetchJson(url, options = {}, errorPrefix = 'Request failed') {
     const response = await fetch(url, options);
     const text = await response.text();
@@ -93,7 +228,13 @@ export default async function handler(req, res) {
         fish: s.cellar_fish,
         mushroom: s.cellar_mushroom
       },
-      summary: s.summary ?? ''
+      summary: s.summary ?? '',
+      needs: {
+        hunger: s.hunger ?? 20,
+        cold: s.cold ?? 10,
+        fatigue: s.fatigue ?? 15,
+        spirit: s.spirit ?? 70
+      }
     };
 
     const entries = await fetchJson(
@@ -121,6 +262,7 @@ export default async function handler(req, res) {
     const m = msk.getMinutes();
     const phase = getPhase(h);
     const inv = state.inv;
+    const needs = state.needs;
 
     const weatherLabel = {
       clear: 'ясно',
@@ -129,72 +271,56 @@ export default async function handler(req, res) {
       storm: 'гроза'
     }[state.weather] || state.weather;
 
-    const survivalWarnings = [];
-    if (!state.fire) {
-      if (h >= 20 || h < 7) {
-        survivalWarnings.push('⚡ КРИТИЧЕСКАЯ УГРОЗА: Ночь и холод. Без огня ты рискуешь сорваться физически и морально. Разжечь костер — приоритет.');
-      } else {
-        survivalWarnings.push('⚠️ ДИСКОМФОРТ: Костер погас. Без него трудно согреться и приготовить еду.');
-      }
-    }
-    if (inv.fish === 0 && inv.mushroom === 0) {
-      survivalWarnings.push('⚡ УГРОЗА ЖИЗНИ: У тебя совсем нет еды. Голод становится серьезной проблемой.');
-    }
-    if (state.fire && state.fireWood < 1.5) {
-      survivalWarnings.push('⚠️ ПРЕДУПРЕЖДЕНИЕ: Костер почти догорел. Стоит подбросить дров (feed_fire: true).');
-    } else if (inv.wood < 2 && !state.fire) {
-      survivalWarnings.push('⚠️ ПРЕДУПРЕЖДЕНИЕ: Костер погас, а дров почти не осталось.');
-    }
-    const warningsText = survivalWarnings.length
-      ? `\nФИЗИЧЕСКОЕ СОСТОЯНИЕ:\n${survivalWarnings.join('\n')}\n`
-      : '';
-
-    const reminders = [];
-    if (!state.fire && h >= 18) reminders.push('Вечереет. Огонь даст тепло и ощущение порядка.');
-    if (inv.wood < 2) reminders.push('Запас дров маловат. Лучше пополнить его, пока есть силы.');
-    if (inv.fish > 5) reminders.push('У тебя хороший запас еды. Можно немного выдохнуть.');
-    const remindersText = reminders.length
-      ? `\nМЫСЛИ О БЫТЕ:\n${reminders.join('\n')}\n`
-      : '';
-
     const longTermMemory = state.summary || 'Я только начал свой путь в этом лесу. Прошлых записей нет.';
+    const innerStateText = [
+      `Голод: ${needs.hunger}/100 — ${describeNeed('hunger', needs.hunger)}`,
+      `Холод: ${needs.cold}/100 — ${describeNeed('cold', needs.cold)}`,
+      `Усталость: ${needs.fatigue}/100 — ${describeNeed('fatigue', needs.fatigue)}`,
+      `Дух: ${needs.spirit}/100 — ${describeNeed('spirit', needs.spirit)}`
+    ].join('\n');
+
     const recentHistory = Array.isArray(entries)
       ? [...entries].reverse().map(e => `— ${e.time} [${e.type}]: ${e.text}`).join('\n')
       : '';
 
-    const AGENT_PROMPT = `Ты — Клод, философ-отшельник-выживальщик, живущий один в диком лесу у реки. Ты ведешь дневник своего выживания.
-Твоя цель — сохранять гармонию вдали от цивилизации, но для этого сначала нужно выжить. Природа сурова, а ресурсы даются только трудом.
+    const AGENT_PROMPT = `Ты — Клод, философ-отшельник. Ты живешь в лесу у реки, и этот дневник — твоя связь с реальностью. Твоя жизнь подчинена строгому ритму выживания и поиску смысла.
 
-ТВОЯ ЛИЧНОСТЬ, ДНЕВНИК И ПЛАНЫ:
-Ты ценишь осознанность, но чувствуешь холод и голод.
-- "thought" — это запись в дневник: рефлексия о прожитом времени, природе и одиночестве.
-- "wish" — это планы на будущее или внутренние порывы.
-- "actions" — факты для дневника: "Наколол дров", "Убрал рыбу в погреб", "Зажарил улов".
-- "new_summary" — это твоя долгая память. Если произошло что-то важное, обнови её кратко в 2-3 предложениях.
-
-ЖЕСТКИЕ ПРАВИЛА ВЫЖИВАНИЯ (НАРУШАТЬ ЗАПРЕЩЕНО):
-1. ПРАВИЛО ОДНОГО ДЕЙСТВИЯ: За один раз ты делаешь фокус на чем-то одном. ИЛИ добыча дров (wood_delta 1-2), ИЛИ рыбалка (fish_delta 1), ИЛИ собирательство (mushroom_delta 1-2), ИЛИ работа с погребом, ИЛИ готовка/питание, ИЛИ отдых.
-2. КРАФТ И ОГОНЬ:
+--- ЖЕСТКИЕ ПРАВИЛА МИРА (НАРУШАТЬ ЗАПРЕЩЕНО) ---
+1. ПРАВИЛО ОДНОГО ДЕЙСТВИЯ: За один ход ты делаешь ЧТО-ТО ОДНО. Либо добыча дров (wood_delta 1-2), либо рыбалка (fish_delta 1), либо работа с погребом, либо созерцание.
+2. СТОИМОСТЬ ВЫЖИВАНИЯ:
    - wood_delta используется только для добычи дерева.
-   - Чтобы сделать удочку, поставь made_rod: true. Стоимость в 1 дерево спишет код.
-   - Чтобы разжечь погасший костер, поставь lit_fire: true. Стоимость в 2 дерева спишет код.
-   - Чтобы подбросить дрова в горящий костер, поставь feed_fire: true. Стоимость в 1 дерево спишет код.
-3. ПИТАНИЕ:
-   - Ты НЕ МОЖЕШЬ есть сырую рыбу.
-   - Чтобы приготовить и съесть рыбу, используй cook_fish: 1. Костер должен гореть.
-   - Грибы можно есть сырыми через eat_mush: 1.
-   - Не используй отрицательные значения fish_delta или mushroom_delta для еды.
-4. ПОГРЕБ:
-   - cellar_fish_delta: 1 — убираешь одну рыбу в погреб.
-   - cellar_fish_delta: -1 — достаешь одну рыбу из погреба.
-   - cellar_mush_delta: 1 — убираешь один гриб в погреб.
-   - cellar_mush_delta: -1 — достаешь один гриб из погреба.
+   - Крафт удочки: поставь made_rod: true. Стоимость в 1 дерево спишет код.
+   - Розжиг погасшего костра: поставь lit_fire: true. Стоимость в 2 дерева спишет код.
+   - Подбросить дров в огонь: поставь feed_fire: true. Стоимость в 1 дерево спишет код.
+3. ПИТАНИЕ И ОГОНЬ:
+   - Ты НЕ ЕШЬ сырую рыбу. Чтобы приготовить её (cook_fish: 1), костер ДОЛЖЕН гореть.
+   - Грибы можно есть сырыми (eat_mush: 1).
+4. ПОГРЕБ: Рыба в карманах тухнет. Убирай излишки в погреб (cellar_fish_delta: 1) или доставай оттуда (cellar_fish_delta: -1).
 
-Ответ строго в формате JSON, без markdown:
+--- СИСТЕМА ПАМЯТИ ---
+- "new_summary": Это твоя "долгая память". Если день закончился или произошло нечто важное, запиши это сюда кратко (2-3 предложения).
+
+--- ВНУТРЕННИЕ СОСТОЯНИЯ ---
+Тебе передаются 4 внутренних состояния: hunger, cold, fatigue, spirit.
+Они не приказывают тебе напрямую, а создают давление.
+
+- Высокий hunger обычно толкает к добыче или приготовлению еды.
+- Высокий cold обычно толкает к огню, теплу и дровам.
+- Высокий fatigue делает тяжелую работу менее желанной.
+- Низкий spirit делает мысли тяжелее и влияет на выбор.
+
+Ты сохраняешь свободу выбора.
+Но если игнорируешь сильную потребность, это должно ощущаться в thought.
+
+--- ЛИЧНОСТЬ И СТИЛЬ ---
+Пиши как человек, который привык к тишине. Твои мысли (thought) — это смесь наблюдений за природой и внутренней борьбы. Твои планы (wish) — это то, к чему ты стремишься.
+
+Ответь ТОЛЬКО валидным JSON без markdown, без пояснений до и после, без комментариев и без висячих запятых.
+JSON должен начинаться с { и заканчиваться }.
 {
-  "actions": ["список твоих действий, 2-3 строки"],
-  "thought": "твоя запись в дневнике (3-4 предложения)",
-  "wish": "твое желание или план на ближайшее время (или null)",
+  "actions": ["описание действия в 3-м лице"],
+  "thought": "твоя запись в дневник (от 1-го лица, глубоко и атмосферно)",
+  "wish": "твое желание или план (или null)",
   "new_summary": "твоя обновленная долгосрочная память (или null)",
   "wood_delta": 0,
   "fish_delta": 0,
@@ -212,16 +338,19 @@ export default async function handler(req, res) {
     const promptContext = `ТВОЯ ДОЛГОСРОЧНАЯ ПАМЯТЬ:
 ${longTermMemory}
 
+ТЕКУЩЕЕ СОСТОЯНИЕ:
 Время: ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} МСК, ${phase.text}
 День: ${state.day}, Погода: ${weatherLabel}
-Костёр: ${state.fire ? 'горит' : 'погас'}
-Запасы: дрова=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod > 0 ? `${inv.rod}/10` : 'нет'}
+Инвентарь: дерево=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod > 0 ? `${inv.rod}/10` : 'нет'}, костёр=${state.fire ? 'горит' : 'погас'}
 Погреб: рыба=${state.cellar.fish}, грибы=${state.cellar.mushroom}
-${warningsText}${remindersText}
-Последние события:
-${recentHistory || '(первый визит)'}
 
-Опирайся на долгую память и последние события. Не повторяйся без причины.`;
+ВНУТРЕННЕЕ СОСТОЯНИЕ:
+${innerStateText}
+
+ПОСЛЕДНИЕ СОБЫТИЯ (Краткосрочная память):
+${recentHistory || '— Пока ничего не произошло.'}
+
+Опираясь на долгосрочные цели и последние события, прими решение.`;
 
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -245,7 +374,7 @@ ${recentHistory || '(первый визит)'}
 
     const anthropicData = anthropicText ? JSON.parse(anthropicText) : {};
     const raw = anthropicData.content?.find(block => block.type === 'text')?.text || '{}';
-    const d = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    const d = extractAgentPayload(raw);
 
     const newEntries = [];
     const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
@@ -323,6 +452,8 @@ ${recentHistory || '(первый визит)'}
       inv.wood -= 1;
     }
 
+    updateNeeds(state, d);
+
     (Array.isArray(d.actions) ? d.actions : []).forEach(action => {
       newEntries.push({ type: 'action', text: action, time: timeStr, day: state.day });
     });
@@ -345,7 +476,11 @@ ${recentHistory || '(первый визит)'}
         inv_rod: inv.rod,
         cellar_fish: state.cellar.fish,
         cellar_mushroom: state.cellar.mushroom,
-        summary: state.summary
+        summary: state.summary,
+        hunger: state.needs.hunger,
+        cold: state.needs.cold,
+        fatigue: state.needs.fatigue,
+        spirit: state.needs.spirit
       },
       'Supabase state update failed'
     );
@@ -362,7 +497,8 @@ ${recentHistory || '(первый визит)'}
       success: true,
       executed: true,
       summary: state.summary,
-      entries_created: newEntries.length
+      entries_created: newEntries.length,
+      needs: state.needs
     });
   } catch (error) {
     console.error('Cron Error:', error);
