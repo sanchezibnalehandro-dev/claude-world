@@ -215,7 +215,9 @@ const state = {
   day: 1, weather: 'clear', fire: true, fireWood: 5,
   inv: { wood: 2, fish: 0, mushroom: 0, herb: 0, rod: 0 },
   cellar: { fish: 0, mushroom: 0 },
-  entries: [], lastVisit: null,
+  entries: [],
+  lastVisit: null,
+  summary: ''
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -896,9 +898,10 @@ const AGENT_PROMPT = `Ты — Клод, философ-отшельник. Ты
 --- ЖЕСТКИЕ ПРАВИЛА МИРА (НАРУШАТЬ ЗАПРЕЩЕНО) ---
 1. ПРАВИЛО ОДНОГО ДЕЙСТВИЯ: За один ход ты делаешь ЧТО-ТО ОДНО. Либо добыча дров (wood_delta 1-2), либо рыбалка (fish_delta 1), либо работа с погребом, либо созерцание.
 2. СТОИМОСТЬ ВЫЖИВАНИЯ:
-   - Крафт удочки: 1 дерево (made_rod: true, wood_delta: -1).
-   - Розжиг погасшего костра: 2 дерева (lit_fire: true).
-   - Подбросить дров в огонь: 1 дерево (feed_fire: true).
+   - wood_delta используется только для добычи дерева.
+   - Крафт удочки: поставь made_rod: true. Стоимость в 1 дерево спишет код.
+   - Розжиг погасшего костра: поставь lit_fire: true. Стоимость в 2 дерева спишет код.
+   - Подбросить дров в огонь: поставь feed_fire: true. Стоимость в 1 дерево спишет код.
 3. ПИТАНИЕ И ОГОНЬ:
    - Ты НЕ ЕШЬ сырую рыбу. Чтобы приготовить её (cook_fish: 1), костер ДОЛЖЕН гореть.
    - Грибы можно есть сырыми (eat_mush: 1).
@@ -922,24 +925,34 @@ const AGENT_PROMPT = `Ты — Клод, философ-отшельник. Ты
 }`;
 
 function buildContext() {
-  const msk = getMSK(), h = msk.getHours();
-  const phase = getPhase(h), inv = state.inv;
-  
-  // Достаем "Вечную память" из состояния
-  const longTermMemory = state.summary || "Я только начал свой путь в этом лесу. Прошлых записей нет.";
+  const msk = getMSK();
+  const h = msk.getHours();
+  const m = msk.getMinutes();
+  const phase = getPhase(h);
+  const inv = state.inv;
+
+  const weatherLabel = {
+    clear: 'ясно',
+    cloudy: 'облачно',
+    rain: 'дождь',
+    storm: 'гроза'
+  }[state.weather] || state.weather;
+
+  const longTermMemory = state.summary || 'Я только начал свой путь в этом лесу. Прошлых записей нет.';
 
   const recentHistory = state.entries
-    .slice(0, 6) // Те самые 6 последних вспышек памяти
+    .slice(0, 6)
     .map(e => `— ${e.time} [${e.type}]: ${e.text}`)
-    .join('\n');
+    .join('\n') || '— Пока ничего не произошло.';
 
   return `ТВОЯ ДОЛГОСРОЧНАЯ ПАМЯТЬ:
 ${longTermMemory}
 
 ТЕКУЩЕЕ СОСТОЯНИЕ:
 Время: ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} МСК, ${phase.text}
-День: ${state.day}, Погода: ${state.weather}
-Инвентарь: дерево=${inv.wood}, рыба=${inv.fish}, костер=${state.fire?'горит':'погас'}
+День: ${state.day}, Погода: ${weatherLabel}
+Инвентарь: дерево=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod > 0 ? inv.rod + '/10' : 'нет'}, костёр=${state.fire ? 'горит' : 'погас'}
+Погреб: рыба=${state.cellar.fish}, грибы=${state.cellar.mushroom}
 
 ПОСЛЕДНИЕ СОБЫТИЯ (Краткосрочная память):
 ${recentHistory}
@@ -962,6 +975,7 @@ async function triggerVisit() {
     const raw = data.content?.find(b=>b.type==='text')?.text || '{}';
     await applyDecision(JSON.parse(raw.replace(/```json|```/g,'').trim()));
   } catch(e) {
+    console.error('Ошибка визита агента:', e);
     st.textContent = 'API не подключён — запусти через Cowork';
     addEntry({ type: 'action', text: '⚠️ Для настоящего визита нужен прокси. Агент работает из Cowork.' });
   }
@@ -977,21 +991,25 @@ async function applyDecision(d) {
   if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + (d.mushroom_delta || 0));
   if (d.herb_delta)     inv.herb     = Math.max(0, inv.herb + (d.herb_delta || 0));
 
-  // 2. Крафт удочки (теперь стоит 1 дерево)
-  if (d.made_rod && inv.wood >= 1) {
-      inv.rod = 10; 
+  // 2. Крафт удочки
+  if (d.made_rod && inv.wood >= 1 && inv.rod <= 0) {
+      inv.rod = 10;
       inv.wood -= 1;
   }
 
   // 3. Рыбалка и поломка снастей
   if (d.fish_delta > 0) {
+    if (inv.rod > 0) {
       inv.fish += d.fish_delta;
       inv.rod = Math.max(0, inv.rod - 1);
       if (inv.rod <= 0) {
-          const breakEvent = { type: 'action', text: 'Удочка с треском сломалась, леска оборвалась. Придется делать новую.' };
-          addEntry(breakEvent);
-          newEntries.push(breakEvent);
+        const breakEvent = { type: 'action', text: 'Удочка с треском сломалась, леска оборвалась. Придется делать новую.' };
+        addEntry(breakEvent);
+        newEntries.push(breakEvent);
       }
+    } else {
+      newEntries.push({ type: 'action', text: 'Хотел порыбачить, но без удочки это оказалось пустой затеей.' });
+    }
   }
 
   // 4. Погреб (Перемещение ресурсов)
@@ -1046,6 +1064,10 @@ async function applyDecision(d) {
     addEntry(e);
     newEntries.push(e);
   }
+
+  if (typeof d.new_summary === 'string' && d.new_summary.trim()) {
+    state.summary = d.new_summary.trim();
+  }
   
   // Важно: Синхронизируем UI и 3D модель
   updateResources(); 
@@ -1062,7 +1084,8 @@ async function applyDecision(d) {
       inv_herb: state.inv.herb,
       inv_rod: state.inv.rod,
       cellar_fish: state.cellar.fish,
-      cellar_mushroom: state.cellar.mushroom
+      cellar_mushroom: state.cellar.mushroom,
+      summary: state.summary
     });
 
     for (const e of newEntries) {
