@@ -371,6 +371,8 @@ function updateLogVisuals() {
 
   for (let i = 0; i < count; i++) {
     const log = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
+    log.castShadow = true;
+    log.receiveShadow = true;
 
     // ТВОЯ ТЕКУЩАЯ РАБОЧАЯ ОРИЕНТАЦИЯ
     log.scale.setScalar(0.003);
