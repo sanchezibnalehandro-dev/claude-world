@@ -20,12 +20,9 @@
 }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #060412; }
 body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); display: flex; }
-
-/* ── Scene ── */
 #scene { flex: 1; position: relative; overflow: hidden; }
 #scene canvas { display: block; }
 
-/* ── Loading overlay ── */
 #loading {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -37,16 +34,14 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
   font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 3px;
   color: var(--gold); opacity: 0.6; margin-top: 16px;
 }
-.loading-dots::after {
-  content: ''; animation: dots 1.5s steps(4, end) infinite;
-}
+.loading-dots::after { content: ''; animation: dots 1.5s steps(4, end) infinite; }
 @keyframes dots {
   0%, 100% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; }
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Diary Panel ── */
 #diary-panel {
-  width: 320px; min-width: 320px;
+  width: 340px; min-width: 340px;
   background: var(--panel-bg); border-left: 1px solid var(--border);
   display: flex; flex-direction: column; height: 100vh;
   position: relative; z-index: 10;
@@ -62,7 +57,7 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
   font-weight: 500; text-shadow: 0 0 20px rgba(200,148,58,0.4); letter-spacing: 2px;
 }
 #clock-sub { font-size: 13px; color: var(--text-dim); font-style: italic; }
-#phase-line { margin-top: 6px; font-size: 13px; color: var(--text-dim); display: flex; gap: 12px; }
+#phase-line { margin-top: 6px; font-size: 13px; color: var(--text-dim); display: flex; gap: 12px; flex-wrap: wrap; }
 
 #resources {
   padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -71,13 +66,13 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
 .res-chip { font-size: 15px; color: var(--text-dim); display: flex; align-items: center; gap: 4px; transition: color .3s; }
 .res-chip.has { color: var(--text); }
 .res-n { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); min-width: 16px; }
-#needs-panel {
+
+#world-panel, #needs-panel {
   padding: 12px 20px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-
-.needs-title {
+.block-title {
   font-family: 'Cinzel', serif;
   font-size: 10px;
   letter-spacing: 2px;
@@ -85,15 +80,35 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
   text-transform: uppercase;
   margin-bottom: 10px;
 }
-
-.need-row {
-  margin-bottom: 10px;
+.world-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.world-line:last-child { margin-bottom: 0; }
+.world-label { min-width: 64px; color: var(--text-faint); }
+.world-value {
+  text-align: right;
+  color: var(--text);
+  line-height: 1.35;
+}
+#intent-value {
+  color: var(--gold-pale);
+  font-style: italic;
+}
+#intent-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.35;
 }
 
-.need-row:last-child {
-  margin-bottom: 0;
-}
-
+.need-row { margin-bottom: 10px; }
+.need-row:last-child { margin-bottom: 0; }
 .need-head {
   display: flex;
   justify-content: space-between;
@@ -102,7 +117,6 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
   color: var(--text-dim);
   margin-bottom: 4px;
 }
-
 .need-bar {
   width: 100%;
   height: 6px;
@@ -111,18 +125,17 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
   border-radius: 999px;
   overflow: hidden;
 }
-
 .need-fill {
   height: 100%;
   width: 0%;
   border-radius: 999px;
   transition: width .35s ease;
 }
-
 .need-fill-hunger  { background: linear-gradient(90deg, #7a3f14, #d26a1e); }
 .need-fill-cold    { background: linear-gradient(90deg, #305a7a, #6aa7d8); }
 .need-fill-fatigue { background: linear-gradient(90deg, #6b4c1b, #c89a4a); }
 .need-fill-spirit  { background: linear-gradient(90deg, #4d6b3a, #8ebc63); }
+
 #diary-scroll { flex: 1; overflow-y: auto; padding: 0; scrollbar-width: thin; scrollbar-color: #3a2a10 transparent; }
 #diary-scroll::-webkit-scrollbar { width: 3px; }
 #diary-scroll::-webkit-scrollbar-thumb { background: #3a2a10; }
@@ -190,6 +203,7 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
       <span id="weather-text">—</span>
     </div>
   </div>
+
   <div id="resources">
     <div class="res-chip" id="r-wood">🪵 <span class="res-n" id="rn-wood">0</span></div>
     <div class="res-chip" id="r-fish">🐟 <span class="res-n" id="rn-fish">0</span></div>
@@ -198,17 +212,31 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
     <div class="res-chip" id="r-rod" title="Удочка">🎣 <span class="res-n" id="rn-rod">✗</span></div>
     <div class="res-chip" id="r-fire" title="Костёр">🔥 <span class="res-n" id="rn-fire" style="font-size:10px">погас</span></div>
   </div>
-    <div id="needs-panel">
-    <div class="needs-title">СОСТОЯНИЕ</div>
+
+  <div id="world-panel">
+    <div class="block-title">МИР И НАМЕРЕНИЕ</div>
+    <div class="world-line">
+      <span class="world-label">Место</span>
+      <span class="world-value" id="location-value">У очага</span>
+    </div>
+    <div class="world-line">
+      <span class="world-label">Линия</span>
+      <div class="world-value">
+        <div id="intent-value">держусь ближе к огню и собираю себя</div>
+        <div id="intent-meta">сегодня · hut</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="needs-panel">
+    <div class="block-title">СОСТОЯНИЕ</div>
 
     <div class="need-row">
       <div class="need-head">
         <span>🍖 Голод</span>
         <span id="need-hunger-value">20/100</span>
       </div>
-      <div class="need-bar">
-        <div class="need-fill need-fill-hunger" id="need-hunger-fill"></div>
-      </div>
+      <div class="need-bar"><div class="need-fill need-fill-hunger" id="need-hunger-fill"></div></div>
     </div>
 
     <div class="need-row">
@@ -216,9 +244,7 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
         <span>🥶 Холод</span>
         <span id="need-cold-value">10/100</span>
       </div>
-      <div class="need-bar">
-        <div class="need-fill need-fill-cold" id="need-cold-fill"></div>
-      </div>
+      <div class="need-bar"><div class="need-fill need-fill-cold" id="need-cold-fill"></div></div>
     </div>
 
     <div class="need-row">
@@ -226,9 +252,7 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
         <span>😮‍💨 Усталость</span>
         <span id="need-fatigue-value">15/100</span>
       </div>
-      <div class="need-bar">
-        <div class="need-fill need-fill-fatigue" id="need-fatigue-fill"></div>
-      </div>
+      <div class="need-bar"><div class="need-fill need-fill-fatigue" id="need-fatigue-fill"></div></div>
     </div>
 
     <div class="need-row">
@@ -236,12 +260,12 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
         <span>🕯️ Дух</span>
         <span id="need-spirit-value">70/100</span>
       </div>
-      <div class="need-bar">
-        <div class="need-fill need-fill-spirit" id="need-spirit-fill"></div>
-      </div>
+      <div class="need-bar"><div class="need-fill need-fill-spirit" id="need-spirit-fill"></div></div>
     </div>
   </div>
+
   <div id="diary-scroll"><div id="diary-entries"></div></div>
+
   <div id="agent-status">
     <div id="status-action">
       <div id="status-dot"></div>
@@ -250,10 +274,6 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
     <button id="visit-btn" onclick="triggerVisit()">▶ ВИЗИТ АГЕНТА</button>
   </div>
 </div>
-
-<style>
-@keyframes spin { to { transform: rotate(360deg); } }
-</style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.6.10/umd/index.js"></script>
@@ -268,7 +288,7 @@ const SUPA_KEY = 'sb_publishable_dngGHGRs5qz5Z8BgxUAtzQ_vpXbi5q4';
 
 async function supaFetch(table, params = '') {
   const r = await fetch(`${SUPA_URL}/rest/v1/${table}${params}`, {
-    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
   });
   if (!r.ok) throw new Error('Supabase Fetch ' + r.status);
   return r.json();
@@ -278,40 +298,74 @@ async function supaUpdate(table, id, data) {
   const r = await fetch(`${SUPA_URL}/rest/v1/${table}?id=eq.${id}`, {
     method: 'PATCH',
     headers: {
-      'apikey': SUPA_KEY,
-      'Authorization': 'Bearer ' + SUPA_KEY,
+      apikey: SUPA_KEY,
+      Authorization: 'Bearer ' + SUPA_KEY,
       'Content-Type': 'application/json',
-      'Prefer': 'return=minimal'
+      Prefer: 'return=minimal'
     },
     body: JSON.stringify(data)
   });
-  if (!r.ok) console.error('Supabase Update Error:', await r.text());
+  if (!r.ok) throw new Error(await r.text());
 }
 
 async function supaInsert(table, data) {
   const r = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
     method: 'POST',
     headers: {
-      'apikey': SUPA_KEY,
-      'Authorization': 'Bearer ' + SUPA_KEY,
+      apikey: SUPA_KEY,
+      Authorization: 'Bearer ' + SUPA_KEY,
       'Content-Type': 'application/json',
-      'Prefer': 'return=minimal'
+      Prefer: 'return=minimal'
     },
     body: JSON.stringify(data)
   });
-  if (!r.ok) console.error('Supabase Insert Error:', await r.text());
+  if (!r.ok) throw new Error(await r.text());
+}
+
+async function supaUpdateOptionalMeta() {
+  try {
+    await fetch(`${SUPA_URL}/rest/v1/claude_world_state?id=eq.1`, {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPA_KEY,
+        Authorization: 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal'
+      },
+      body: JSON.stringify({
+        location: state.location,
+        intent_label: state.intent.label,
+        intent_focus: state.intent.focus,
+        intent_horizon: state.intent.horizon,
+        intent_reason: state.intent.reason,
+        intent_age: state.intent.age
+      })
+    });
+  } catch (e) {
+    console.warn('optional world meta patch skipped', e);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════
 const state = {
-  day: 1, weather: 'clear', fire: true, fireWood: 5,
+  day: 1,
+  weather: 'clear',
+  fire: true,
+  fireWood: 8,
   inv: { wood: 2, fish: 0, mushroom: 0, herb: 0, rod: 0 },
   cellar: { fish: 0, mushroom: 0 },
   entries: [],
-  lastVisit: null,
   summary: '',
+  location: 'hut',
+  intent: {
+    label: 'держусь ближе к огню и собираю себя',
+    focus: 'hut',
+    horizon: 'today',
+    reason: 'утро любит порядок и тёплый очаг',
+    age: 0
+  },
   needs: {
     hunger: 20,
     cold: 10,
@@ -319,6 +373,247 @@ const state = {
     spirit: 70
   }
 };
+
+// ═══════════════════════════════════════════════════════════
+//  WORLD HELPERS
+// ═══════════════════════════════════════════════════════════
+function describeLocation(loc) {
+  return {
+    hut: 'У очага',
+    river: 'У реки',
+    woods: 'В лесу'
+  }[loc] || 'У очага';
+}
+function describeFocus(focus) {
+  return {
+    hut: 'дом',
+    river: 'река',
+    woods: 'лес',
+    rest: 'покой',
+    reflection: 'мысль',
+    supplies: 'запас'
+  }[focus] || focus || 'мир';
+}
+function describeHorizon(horizon) {
+  return {
+    now: 'сейчас',
+    today: 'сегодня',
+    until_evening: 'до вечера'
+  }[horizon] || 'сегодня';
+}
+function clampNeed(v) {
+  return Math.max(0, Math.min(100, Math.round(v)));
+}
+function safeText(v, fallback = '') {
+  return typeof v === 'string' && v.trim() ? v.trim() : fallback;
+}
+function getMSK() {
+  const now = new Date();
+  return new Date(now.getTime() + (now.getTimezoneOffset() + 180) * 60000);
+}
+function getPhase(h) {
+  if (h >= 5  && h < 7)  return { text: '🌅 Рассвет', amb: 0.3 };
+  if (h >= 7  && h < 11) return { text: '☀️ Утро', amb: 0.85 };
+  if (h >= 11 && h < 17) return { text: '🌞 День', amb: 1.0 };
+  if (h >= 17 && h < 20) return { text: '🌇 Закат', amb: 0.6 };
+  if (h >= 20 && h < 23) return { text: '🌙 Вечер', amb: 0.25 };
+  return { text: '🌑 Ночь', amb: 0.12 };
+}
+function weatherLabel(code) {
+  return { clear:'ясно', cloudy:'облачно', rain:'дождь', storm:'гроза' }[code] || code;
+}
+function weatherEmoji(code) {
+  return { clear:'☀️', cloudy:'⛅', rain:'🌧️', storm:'⛈️' }[code] || '';
+}
+function describeNeed(name, value) {
+  if (name === 'hunger') {
+    if (value < 20) return 'почти не беспокоит';
+    if (value < 40) return 'слегка напоминает о себе';
+    if (value < 60) return 'уже ощутим';
+    if (value < 80) return 'мешает думать';
+    return 'становится мучительным';
+  }
+  if (name === 'cold') {
+    if (value < 20) return 'телу спокойно';
+    if (value < 40) return 'слегка зябко';
+    if (value < 60) return 'холод пробирается под одежду';
+    if (value < 80) return 'мерзнешь всерьез';
+    return 'холод становится опасным';
+  }
+  if (name === 'fatigue') {
+    if (value < 20) return 'тело бодрое';
+    if (value < 40) return 'есть легкая усталость';
+    if (value < 60) return 'сил заметно меньше';
+    if (value < 80) return 'тяжело заставлять себя работать';
+    return 'тело просит остановиться';
+  }
+  if (name === 'spirit') {
+    if (value < 20) return 'внутри почти темно';
+    if (value < 40) return 'держишься с трудом';
+    if (value < 60) return 'настроение неровное';
+    if (value < 80) return 'в целом держишься';
+    return 'внутри есть опора';
+  }
+  return '';
+}
+function defaultIntentForLocation(loc) {
+  if (loc === 'river') {
+    return {
+      label: 'слежу за рекой и прислушиваюсь к воде',
+      focus: 'river',
+      horizon: 'today',
+      reason: 'день тянет к течению и живому движению',
+      age: 0
+    };
+  }
+  if (loc === 'woods') {
+    return {
+      label: 'иду в лес и позволяю ему самому подсказать занятие',
+      focus: 'woods',
+      horizon: 'today',
+      reason: 'лес лучше слышно, когда не тащишь его силой',
+      age: 0
+    };
+  }
+  return {
+    label: 'держусь ближе к огню и собираю себя',
+    focus: 'hut',
+    horizon: 'today',
+    reason: 'у дома лучше слышно, чего на самом деле хочется',
+    age: 0
+  };
+}
+function normalizeDecision(raw) {
+  const d = raw && typeof raw === 'object' ? raw : {};
+  return {
+    main_action: safeText(d.main_action, 'Клод задержался на месте и ничего не стал ломать силой.'),
+    minor_action: safeText(d.minor_action, ''),
+    thought: safeText(d.thought, 'Тишина не всегда даёт ответы, но она умеет возвращать ритм дыхания.'),
+    wish: safeText(d.wish, ''),
+    new_summary: safeText(d.new_summary, ''),
+    next_location: ['hut','river','woods'].includes(d.next_location) ? d.next_location : state.location,
+    new_intent: d.new_intent && typeof d.new_intent === 'object' ? {
+      label: safeText(d.new_intent.label, state.intent.label),
+      focus: safeText(d.new_intent.focus, state.intent.focus),
+      horizon: safeText(d.new_intent.horizon, state.intent.horizon),
+      reason: safeText(d.new_intent.reason, state.intent.reason)
+    } : null,
+    wood_delta: Number(d.wood_delta || 0),
+    fish_delta: Number(d.fish_delta || 0),
+    mushroom_delta: Number(d.mushroom_delta || 0),
+    herb_delta: Number(d.herb_delta || 0),
+    made_rod: Boolean(d.made_rod),
+    lit_fire: Boolean(d.lit_fire),
+    feed_fire: Boolean(d.feed_fire),
+    cook_fish: Number(d.cook_fish || 0),
+    eat_mush: Number(d.eat_mush || 0),
+    cellar_fish_delta: Number(d.cellar_fish_delta || 0),
+    cellar_mush_delta: Number(d.cellar_mush_delta || 0)
+  };
+}
+function updateNeeds(d) {
+  const n = state.needs;
+  const h = getMSK().getHours();
+
+  n.hunger += 6;
+  n.fatigue += 2;
+
+  if (state.weather === 'rain') n.cold += 3;
+  if (state.weather === 'storm') n.cold += 5;
+
+  if (state.fire && state.location === 'hut') {
+    n.cold -= 10;
+  } else if (h >= 18 || h < 7) {
+    n.cold += 7;
+  } else {
+    n.cold += 2;
+  }
+
+  if (d.wood_delta > 0) { n.fatigue += 6; n.spirit -= 1; }
+  if (d.fish_delta > 0) { n.fatigue += 4; n.spirit += 1; }
+  if (d.mushroom_delta > 0 || d.herb_delta > 0) { n.fatigue += 2; n.spirit += 1; }
+  if (d.made_rod) { n.fatigue += 1; n.spirit += 2; }
+  if (d.lit_fire) { n.cold -= 22; n.spirit += 5; }
+  else if (d.feed_fire) { n.cold -= 8; n.spirit += 2; }
+  if (d.cook_fish > 0) { n.hunger -= 24 * d.cook_fish; n.spirit += 3; }
+  if (d.eat_mush > 0) n.hunger -= 12 * d.eat_mush;
+
+  const didPractical = Boolean(
+    d.wood_delta > 0 || d.fish_delta > 0 || d.mushroom_delta > 0 || d.herb_delta > 0 ||
+    d.made_rod || d.lit_fire || d.feed_fire || d.cook_fish > 0 ||
+    d.cellar_fish_delta !== 0 || d.cellar_mush_delta !== 0
+  );
+
+  if (!didPractical) { n.fatigue -= 3; n.spirit += 4; }
+  if (n.hunger > 70) n.spirit -= 4;
+  if (n.cold > 70) n.spirit -= 5;
+  if (n.fatigue > 80) n.spirit -= 4;
+
+  n.hunger = clampNeed(n.hunger);
+  n.cold = clampNeed(n.cold);
+  n.fatigue = clampNeed(n.fatigue);
+  n.spirit = clampNeed(n.spirit);
+}
+function updateIntentAge(didChangeIntent) {
+  state.intent.age = didChangeIntent ? 0 : Math.min((state.intent.age || 0) + 1, 99);
+}
+function updateWorldUI() {
+  document.getElementById('location-value').textContent = describeLocation(state.location);
+  document.getElementById('intent-value').textContent = state.intent.label || 'прислушиваюсь к миру';
+  document.getElementById('intent-meta').textContent =
+    `${describeHorizon(state.intent.horizon)} · ${describeFocus(state.intent.focus)} · ${state.intent.reason}`;
+}
+function updateNeedsUI() {
+  const map = [
+    ['hunger', 'need-hunger-fill', 'need-hunger-value'],
+    ['cold', 'need-cold-fill', 'need-cold-value'],
+    ['fatigue', 'need-fatigue-fill', 'need-fatigue-value'],
+    ['spirit', 'need-spirit-fill', 'need-spirit-value']
+  ];
+  map.forEach(([key, fillId, valueId]) => {
+    const fill = document.getElementById(fillId);
+    const value = document.getElementById(valueId);
+    if (!fill || !value) return;
+    fill.style.width = `${state.needs[key]}%`;
+    value.textContent = `${state.needs[key]}/100`;
+  });
+}
+function canDoLocationAction(loc, d) {
+  if (d.eat_mush > 0) return true;
+  if (loc === 'river') return d.fish_delta > 0;
+  if (loc === 'woods') return d.wood_delta > 0 || d.mushroom_delta > 0 || d.herb_delta > 0;
+  if (loc === 'hut') {
+    return d.made_rod || d.lit_fire || d.feed_fire || d.cook_fish > 0 ||
+      d.cellar_fish_delta !== 0 || d.cellar_mush_delta !== 0;
+  }
+  return false;
+}
+function scrubContradictions(d) {
+  const notes = [];
+  const moving = d.next_location !== state.location;
+  const practicalAtOldPlace = canDoLocationAction(state.location, d);
+  if (moving && practicalAtOldPlace) {
+    notes.push(`Клод сменил место — поэтому практические действия я свёл к нулю, чтобы мир не телепортировался.`);
+    d.wood_delta = 0; d.fish_delta = 0; d.mushroom_delta = 0; d.herb_delta = 0;
+    d.made_rod = false; d.lit_fire = false; d.feed_fire = false;
+    d.cook_fish = 0; d.cellar_fish_delta = 0; d.cellar_mush_delta = 0;
+  }
+  if (!moving) {
+    if (state.location !== 'river') d.fish_delta = 0;
+    if (state.location !== 'woods') { d.wood_delta = 0; d.mushroom_delta = 0; d.herb_delta = 0; }
+    if (state.location !== 'hut') {
+      d.made_rod = false; d.lit_fire = false; d.feed_fire = false;
+      d.cook_fish = 0; d.cellar_fish_delta = 0; d.cellar_mush_delta = 0;
+    }
+  }
+  return notes;
+}
+function inferPoseFromWorld(actionText = '') {
+  const t = (actionText || '').toLowerCase();
+  if (state.location === 'river' || t.includes('рыб')) return 'fishing';
+  if (t.includes('спал') || t.includes('отдых') || t.includes('задрем')) return 'sleeping';
+  return 'sitting';
+}
 
 // ═══════════════════════════════════════════════════════════
 //  THREE.JS GLOBALS
@@ -331,106 +626,61 @@ const animCache = {};
 const FRUSTUM = 11;
 
 const CHAR_SCALE = 0.011;
-const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing: 0.15, idle: 0.00 }; // Чуть подняли fishing
+const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing: 0.15, idle: 0.00 };
 const CHAR_X = -2, CHAR_Z = 1.8;
 
 // ═══════════════════════════════════════════════════════════
-//  GLTF PACK LOADER
+//  SCENE ASSETS
 // ═══════════════════════════════════════════════════════════
 const mushroomPrefabs = [];
 let logPrefab = null;
 let logPileGroup;
-let worldMushroomsGroup; // Группа, в которой будут расти все наши грибы
+let worldMushroomsGroup;
 
 function loadMushroomPack() {
   const loader = new THREE.GLTFLoader();
   loader.load('/models/mushrooms.glb', (gltf) => {
     gltf.scene.traverse((child) => {
       if (child.isMesh) {
-        // 1. Поворачиваем гриб "на ноги"
         child.geometry.rotateX(-Math.PI / 2);
-        
-        // 2. Считаем его новые физические границы после поворота
         child.geometry.computeBoundingBox();
         const center = new THREE.Vector3();
         child.geometry.boundingBox.getCenter(center);
-        
-        // 3. МАГИЯ ЦЕНТРА ТЯЖЕСТИ:
-        // X и Z сдвигаем по центру, а Y (высоту) сдвигаем по самому дну (min.y)
         child.geometry.translate(-center.x, -child.geometry.boundingBox.min.y, -center.z);
-        
         child.castShadow = true;
         child.receiveShadow = true;
         mushroomPrefabs.push(child);
       }
     });
-    console.log(`🍄 Пак разобран! Найдено уникальных грибов: ${mushroomPrefabs.length}`);
     plantInitialMushrooms();
-  });
+  }, null, () => console.warn('mushrooms.glb not loaded'));
 }
-
 function plantInitialMushrooms() {
   worldMushroomsGroup = new THREE.Group();
   scene.add(worldMushroomsGroup);
-
-  // Координаты секторов, где растут грибы (x, z)
-  const mushroomSpots = [
-    [-3, 4], [-4, 3.5], [-2.5, 5], // Полянка 1 (в лесу)
-    [4, -3], [5, -2], [4.5, -4],   // Полянка 2 (около пруда)
-    [-6, -2], [-5.5, -3]           // Полянка 3 (за палаткой)
-  ];
-
+  const mushroomSpots = [[-3, 4], [-4, 3.5], [-2.5, 5], [4, -3], [5, -2], [4.5, -4], [-6, -2], [-5.5, -3]];
   mushroomSpots.forEach(spot => {
-    // Добавляем небольшой случайный разброс координат, чтобы росло естественно
     const rx = spot[0] + (Math.random() - 0.5) * 1.5;
     const rz = spot[1] + (Math.random() - 0.5) * 1.5;
     spawnRandomMushroom(rx, rz, worldMushroomsGroup);
   });
 }
-
 function spawnRandomMushroom(x, z, group) {
   if (mushroomPrefabs.length === 0) return;
   const randomMushroom = mushroomPrefabs[Math.floor(Math.random() * mushroomPrefabs.length)];
-  
   const clone = new THREE.Mesh(randomMushroom.geometry, randomMushroom.material);
   clone.castShadow = true;
   clone.receiveShadow = true;
-  
-  // Ставим ровно на уровень земли (ведь мы починили центр тяжести!)
-  clone.position.set(x, 0, z); 
-  
-  // Уменьшаем масштаб в 20 раз (если все еще большие - поставь 0.02, если стали мелкие - 0.1)
-  clone.scale.setScalar(0.25); 
-  
-  // Теперь гриб стоит вертикально, можем крутить его вправо-влево вокруг своей оси
-  clone.rotation.y = Math.random() * Math.PI * 2; 
-  
+  clone.position.set(x, 0, z);
+  clone.scale.setScalar(0.25);
+  clone.rotation.y = Math.random() * Math.PI * 2;
   group.add(clone);
 }
-// ═══════════════════════════════════════════════════════════
-//  LOG PILE LOGIC (Умная поленница)
-// ═══════════════════════════════════════════════════════════
-function measurePackedLogSize() {
-  if (!logPrefab) return;
-
-  const probe = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
-  probe.scale.setScalar(0.003);
-  probe.rotation.x = Math.PI / 2;
-  probe.rotation.z = Math.PI / 2;
-  probe.rotation.y = 0;
-
-  const box = new THREE.Box3().setFromObject(probe);
-  const size = new THREE.Vector3();
-  box.getSize(size);
-  packedLogSize = size;
-}
-
 function loadLogModel() {
   const loader = new THREE.GLTFLoader();
   loader.load('/models/log_seat.glb', (gltf) => {
     gltf.scene.traverse((child) => {
       if (child.isMesh) {
-        // Ставим на бок и центрируем
         child.geometry.rotateX(-Math.PI / 2);
         child.geometry.computeBoundingBox();
         const center = new THREE.Vector3();
@@ -442,40 +692,39 @@ function loadLogModel() {
       }
     });
     logPileGroup = new THREE.Group();
-    logPileGroup.position.set(2.5, 0, -1.5); // Ставим на место старой статичной кучи
+    logPileGroup.position.set(2.5, 0, -1.5);
     scene.add(logPileGroup);
-    updateLogVisuals(); 
-  });
+    updateLogVisuals();
+  }, null, () => console.warn('log_seat.glb not loaded'));
 }
-
 function updateLogVisuals() {
   if (!logPrefab || !logPileGroup) return;
-  while(logPileGroup.children.length > 0) { logPileGroup.remove(logPileGroup.children[0]); }
-
+  while (logPileGroup.children.length > 0) logPileGroup.remove(logPileGroup.children[0]);
   const count = state.inv.wood || 0;
+  const stepX = 0.13, stepY = 0.04;
   for (let i = 0; i < count; i++) {
     const log = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
-    log.scale.setScalar(0.003); // Масштаб для log_seat.glb
-    log.rotation.x = Math.PI / 2;   // положили
+    log.castShadow = true;
+    log.receiveShadow = true;
+    log.scale.setScalar(0.003);
+    log.rotation.x = Math.PI / 2;
     log.rotation.z = Math.PI / 2;
-    log.rotation.y= 0; 
-
-    // Раскладка пирамидкой
-    let x = 0, y = 0, z = 0;
-    if (i < 3) { x = i * 0.35; } 
-    else if (i < 5) { x = (i - 3) * 0.35 + 0.17; y = 0.2; } 
-    else { x = 0.35; y = 0.4; }
-
-    log.position.set(x, y, z);
+    log.rotation.y = Math.PI / 2;
+    let x = 0, y = 0;
+    if (i < 3) x = i * stepX;
+    else if (i < 5) { x = (i - 3) * stepX + stepX / 2; y = stepY; }
+    else { x = stepX; y = stepY * 2; }
+    log.position.set(x, y, 0);
     logPileGroup.add(log);
   }
 }
+
 // ═══════════════════════════════════════════════════════════
-//  INIT THREE.JS
+//  INIT THREE
 // ═══════════════════════════════════════════════════════════
 function initThree() {
   const container = document.getElementById('scene');
-  const w = container.offsetWidth  || (window.innerWidth  - 320);
+  const w = container.offsetWidth || (window.innerWidth - 340);
   const h = container.offsetHeight || window.innerHeight;
 
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -494,8 +743,8 @@ function initThree() {
 
   const asp = w / h;
   camera = new THREE.OrthographicCamera(
-    -FRUSTUM * asp / 2,  FRUSTUM * asp / 2,
-     FRUSTUM / 2,       -FRUSTUM / 2,
+    -FRUSTUM * asp / 2, FRUSTUM * asp / 2,
+     FRUSTUM / 2, -FRUSTUM / 2,
     0.1, 300
   );
   camera.position.set(16, 13, 16);
@@ -509,22 +758,17 @@ function initThree() {
   loadLogModel();
   animateLoop();
 }
-
 function onResize() {
   const container = document.getElementById('scene');
   const w = container.offsetWidth, h = container.offsetHeight;
   const asp = w / h;
-  camera.left   = -FRUSTUM * asp / 2;
-  camera.right  =  FRUSTUM * asp / 2;
-  camera.top    =  FRUSTUM / 2;
+  camera.left = -FRUSTUM * asp / 2;
+  camera.right = FRUSTUM * asp / 2;
+  camera.top = FRUSTUM / 2;
   camera.bottom = -FRUSTUM / 2;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
 }
-
-// ═══════════════════════════════════════════════════════════
-//  SCENE
-// ═══════════════════════════════════════════════════════════
 function buildScene() {
   ambientLight = new THREE.AmbientLight(0xfff0e0, 0.7);
   scene.add(ambientLight);
@@ -532,7 +776,7 @@ function buildScene() {
   moonLight = new THREE.DirectionalLight(0xb0c8ff, 0.4);
   moonLight.position.set(-10, 18, -6);
   moonLight.castShadow = true;
-  moonLight.shadow.mapSize.width  = 1024;
+  moonLight.shadow.mapSize.width = 1024;
   moonLight.shadow.mapSize.height = 1024;
   scene.add(moonLight);
 
@@ -543,16 +787,14 @@ function buildScene() {
   fireLight = new THREE.PointLight(0xff6820, 3.5, 18);
   fireLight.position.set(0, 0.9, 0);
   fireLight.castShadow = true;
-  fireLight.shadow.mapSize.width  = 512;
+  fireLight.shadow.mapSize.width = 512;
   fireLight.shadow.mapSize.height = 512;
   scene.add(fireLight);
 
   const gGeo = new THREE.PlaneGeometry(60, 60, 12, 12);
   const gPos = gGeo.attributes.position;
   for (let i = 0; i < gPos.count; i++) {
-    if (Math.abs(gPos.getX(i)) > 2 || Math.abs(gPos.getY(i)) > 2) {
-      gPos.setZ(i, (Math.random() - 0.5) * 0.1);
-    }
+    if (Math.abs(gPos.getX(i)) > 2 || Math.abs(gPos.getY(i)) > 2) gPos.setZ(i, (Math.random() - 0.5) * 0.1);
   }
   gGeo.computeVertexNormals();
   const ground = new THREE.Mesh(gGeo, new THREE.MeshLambertMaterial({ color: 0x0d1a07, flatShading: true }));
@@ -561,22 +803,15 @@ function buildScene() {
   scene.add(ground);
 
   buildPond();
-
-  [
-    [-7,-4,1.1],[-9,0,1.3],[-5,-7,0.8],[-10,4,1.2],
-    [-4,-8,0.9],[2,-7,1.0],[5,-5,1.15],[3,-9,0.85],
-    [-6,7,1.1],[-3,8,0.75],[1,7,1.05],[-11,-3,1.4],[6,-8,0.9]
-  ].forEach(([x,z,s]) => buildTree(x, z, s));
-
+  [[-7,-4,1.1],[-9,0,1.3],[-5,-7,0.8],[-10,4,1.2],[-4,-8,0.9],[2,-7,1.0],[5,-5,1.15],[3,-9,0.85],[-6,7,1.1],[-3,8,0.75],[1,7,1.05],[-11,-3,1.4],[6,-8,0.9]]
+    .forEach(([x,z,s]) => buildTree(x, z, s));
   buildCampfire();
   buildTent(-5, -2.5);
   buildStars();
 }
-
 function buildPond() {
   const g = new THREE.Group();
   g.position.set(7.5, 0, 5);
-
   const shore = new THREE.Mesh(
     new THREE.CylinderGeometry(5.2, 5.6, 0.40, 18, 1, false),
     new THREE.MeshLambertMaterial({ color: 0x1a2c10, flatShading: true })
@@ -597,10 +832,7 @@ function buildPond() {
   const rockAngles = [0, 0.42, 0.85, 1.3, 1.75, 2.2, 2.6, 3.0, 3.5, 3.9, 4.4, 4.9, 5.4, 5.8];
   rockAngles.forEach((a, i) => {
     const r = 4.9 + (i % 3) * 0.25;
-    const rock = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.20 + (i % 4) * 0.08, 0),
-      rockMat
-    );
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.20 + (i % 4) * 0.08, 0), rockMat);
     rock.position.set(Math.cos(a) * r, 0.18, Math.sin(a) * r * 0.78);
     rock.rotation.set(Math.sin(i) * 0.8, i * 0.7, Math.cos(i) * 0.6);
     rock.castShadow = true;
@@ -608,7 +840,6 @@ function buildPond() {
   });
   scene.add(g);
 }
-
 function buildTree(x, z, scale) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
@@ -618,21 +849,20 @@ function buildTree(x, z, scale) {
     new THREE.CylinderGeometry(0.1, 0.18, 1.4, 6),
     new THREE.MeshLambertMaterial({ color: 0x2a1808, flatShading: true })
   );
-  trunk.position.y = 0.7; trunk.castShadow = true;
+  trunk.position.y = 0.7;
+  trunk.castShadow = true;
   g.add(trunk);
 
   [[1.1,1.8,1.0,0x122008],[0.82,1.5,2.05,0x1a2e0a],[0.55,1.3,2.9,0x0e1a06],[0.32,0.95,3.6,0x162208]]
-  .forEach(([r, h, y, col]) => {
-    const c = new THREE.Mesh(
-      new THREE.ConeGeometry(r, h, 7),
-      new THREE.MeshLambertMaterial({ color: col, flatShading: true })
-    );
-    c.position.y = y; c.castShadow = true;
-    g.add(c);
-  });
+    .forEach(([r, h, y, col]) => {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7),
+        new THREE.MeshLambertMaterial({ color: col, flatShading: true }));
+      c.position.y = y;
+      c.castShadow = true;
+      g.add(c);
+    });
   scene.add(g);
 }
-
 function buildCampfire() {
   const g = new THREE.Group();
 
@@ -661,43 +891,43 @@ function buildCampfire() {
   flameGroup = new THREE.Group();
   flameGroup.position.y = 0.1;
   [[0xff9020,0.72,0,0.36,0],[0xff5a10,0.58,0.1,0.29,0.08],[0xff3808,0.48,-0.1,0.24,0.07],[0xffe040,0.32,0.04,0.56,-0.05],[0xff7830,0.42,-0.05,0.21,-0.1]]
-  .forEach(([col, h, px, py, pz]) => {
-    const m = new THREE.Mesh(
-      new THREE.ConeGeometry(0.13, h, 5),
-      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.92 })
-    );
-    m.position.set(px, py, pz);
-    flameGroup.add(m);
-  });
+    .forEach(([col, h, px, py, pz]) => {
+      const m = new THREE.Mesh(
+        new THREE.ConeGeometry(0.13, h, 5),
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.92 })
+      );
+      m.position.set(px, py, pz);
+      flameGroup.add(m);
+    });
   g.add(flameGroup);
   scene.add(g);
 }
-
 function buildTent(x, z) {
   const g = new THREE.Group();
   g.position.set(x, 0, z);
-  const t = new THREE.Mesh(new THREE.ConeGeometry(0.95, 1.7, 3, 1), new THREE.MeshLambertMaterial({ color: 0x2c2010, flatShading: true }));
-  t.position.y = 0.85; t.rotation.y = Math.PI/4; t.castShadow = true;
+  const t = new THREE.Mesh(
+    new THREE.ConeGeometry(0.95, 1.7, 3, 1),
+    new THREE.MeshLambertMaterial({ color: 0x2c2010, flatShading: true })
+  );
+  t.position.y = 0.85;
+  t.rotation.y = Math.PI/4;
+  t.castShadow = true;
   g.add(t);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.93, 0.93, 0.06, 3), new THREE.MeshLambertMaterial({ color: 0x1e1408, flatShading: true }));
-  base.position.y = 0.03; base.rotation.y = Math.PI/4;
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.93, 0.93, 0.06, 3),
+    new THREE.MeshLambertMaterial({ color: 0x1e1408, flatShading: true })
+  );
+  base.position.y = 0.03;
+  base.rotation.y = Math.PI/4;
   g.add(base);
-  const stakeMat = new THREE.MeshLambertMaterial({ color: 0x4a3818, flatShading: true });
-  for (let i = 0; i < 3; i++) {
-    const a = (i/3)*Math.PI*2+Math.PI/6;
-    const s = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.25, 4), stakeMat);
-    s.position.set(Math.cos(a)*1.2, 0.12, Math.sin(a)*1.2); s.rotation.z = 0.3;
-    g.add(s);
-  }
   scene.add(g);
 }
-
 function buildStars() {
   const pos = [];
   for (let i = 0; i < 350; i++) {
     const theta = Math.random() * Math.PI * 2;
-    const phi   = Math.random() * Math.PI * 0.42 + 0.08;
-    const r     = 60 + Math.random() * 15;
+    const phi = Math.random() * Math.PI * 0.42 + 0.08;
+    const r = 60 + Math.random() * 15;
     pos.push(r*Math.sin(phi)*Math.cos(theta), r*Math.cos(phi), r*Math.sin(phi)*Math.sin(theta));
   }
   const geo = new THREE.BufferGeometry();
@@ -705,15 +935,14 @@ function buildStars() {
   starParticles = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xe8f0ff, size: 0.22, transparent: true, opacity: 0.9 }));
   scene.add(starParticles);
 }
-
 function buildBoxCharacter() {
   characterGroup = new THREE.Group();
   characterGroup.position.set(-2, 0, 1.8);
 
-  const skinMat  = new THREE.MeshLambertMaterial({ color: 0xc8a065, flatShading: true });
+  const skinMat = new THREE.MeshLambertMaterial({ color: 0xc8a065, flatShading: true });
   const clothMat = new THREE.MeshLambertMaterial({ color: 0x2c4821, flatShading: true });
-  const hatMat   = new THREE.MeshLambertMaterial({ color: 0x181008, flatShading: true });
-  const bootMat  = new THREE.MeshLambertMaterial({ color: 0x1a1008, flatShading: true });
+  const hatMat = new THREE.MeshLambertMaterial({ color: 0x181008, flatShading: true });
+  const bootMat = new THREE.MeshLambertMaterial({ color: 0x1a1008, flatShading: true });
 
   const rock = new THREE.Mesh(new THREE.SphereGeometry(0.32, 5, 4),
     new THREE.MeshLambertMaterial({ color: 0x2a2018, flatShading: true }));
@@ -722,41 +951,19 @@ function buildBoxCharacter() {
 
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.58, 0.3), clothMat);
   torso.position.y = 0.78; torso.castShadow = true; characterGroup.add(torso);
-
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.33), skinMat);
   head.position.y = 1.28; head.castShadow = true; characterGroup.add(head);
-
   const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.05, 8), hatMat);
   brim.position.y = 1.48; characterGroup.add(brim);
   const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.23, 0.3, 8), hatMat);
   crown.position.y = 1.65; characterGroup.add(crown);
-
-  const thighGeo = new THREE.BoxGeometry(0.17, 0.14, 0.48);
-  [-0.14, 0.14].forEach(tx => {
-    const t = new THREE.Mesh(thighGeo, clothMat); t.position.set(tx, 0.45, 0.24); characterGroup.add(t);
-  });
-  [-0.14, 0.14].forEach(tx => {
-    const s = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.4, 0.14), clothMat);
-    s.position.set(tx, 0.25, 0.46); characterGroup.add(s);
-  });
-  [-0.14, 0.14].forEach(tx => {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.23), bootMat);
-    b.position.set(tx, 0.08, 0.5); characterGroup.add(b);
-  });
-  const armGeo = new THREE.BoxGeometry(0.13, 0.12, 0.42);
-  [[-0.29, 0.22], [0.29, -0.22]].forEach(([ax, rz]) => {
-    const arm = new THREE.Mesh(armGeo, skinMat);
-    arm.position.set(ax, 0.56, 0.18); arm.rotation.z = rz; characterGroup.add(arm);
-  });
-
   characterGroup.lookAt(0, 0.5, 0);
   scene.add(characterGroup);
 }
-
 function applyFBXMaterials(fbx) {
   fbx.traverse(child => {
     if (child.isMesh) {
-      child.castShadow    = true;
+      child.castShadow = true;
       child.receiveShadow = true;
       child.frustumCulled = false;
       const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -764,165 +971,113 @@ function applyFBXMaterials(fbx) {
     }
   });
 }
-
-// ─── ИЗМЕНЕНО: Правильное кэширование базовой модели ───
 function loadCharacter() {
   const loading = document.getElementById('loading');
   if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
 
-  if (typeof THREE.FBXLoader === 'undefined') {
-    console.warn('FBXLoader not available, using box character');
-    buildBoxCharacter();
-    return;
-  }
+  if (typeof THREE.FBXLoader === 'undefined') { buildBoxCharacter(); return; }
 
   const loader = new THREE.FBXLoader();
   loader.load('/models/sitting-idle.fbx',
     (fbx) => {
       fbx.scale.setScalar(CHAR_SCALE);
       fbx.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
-      fbx.rotation.y = Math.PI * 0.25;
-
+      fbx.lookAt(0, 0.5, 0);
+      fbx.rotateY(Math.PI);
       applyFBXMaterials(fbx);
-
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
       characterGroup = fbx;
       scene.add(characterGroup);
-
       mixer = new THREE.AnimationMixer(fbx);
-      if (fbx.animations && fbx.animations.length > 0) {
-        mixer.clipAction(fbx.animations[0]).play();
-      }
-      // Сохраняем всю модель со скелетом в кэш!
-      animCache['sitting'] = { mesh: fbx, mixer: mixer }; 
-      console.warn('FBX loaded OK, animations:', fbx.animations.length);
+      if (fbx.animations && fbx.animations.length > 0) mixer.clipAction(fbx.animations[0]).play();
+      animCache.sitting = { mesh: fbx, mixer };
     },
     null,
-    (err) => {
-      console.warn('FBX failed, using box character:', err.message || err);
-      buildBoxCharacter();
-    }
+    () => buildBoxCharacter()
   );
 }
-
-// ─── ИЗМЕНЕНО: Полная замена 3D-модели при смене анимации ───
 async function switchAnimation(name, url, targetPos, targetLookAt) {
   if (!characterGroup) return;
-
-  // 1. Проверяем кэш. Если есть целая загруженная модель — берем её.
   let nextChar = animCache[name]?.mesh;
-
   if (!nextChar) {
     try {
       const loader = new THREE.FBXLoader();
       const loadedFbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
-      
       loadedFbx.scale.setScalar(CHAR_SCALE);
       applyFBXMaterials(loadedFbx);
-      
       const newMixer = new THREE.AnimationMixer(loadedFbx);
-      if (loadedFbx.animations.length > 0) {
-        newMixer.clipAction(loadedFbx.animations[0]).play();
-      }
-      
+      if (loadedFbx.animations.length > 0) newMixer.clipAction(loadedFbx.animations[0]).play();
       animCache[name] = { mesh: loadedFbx, mixer: newMixer };
       nextChar = loadedFbx;
-    } catch(e) { 
-      console.warn('Ошибка загрузки FBX анимации:', e); 
-      return; 
-    }
+    } catch (e) { return; }
   }
-
-  // 2. Убираем старую модель со сцены
   scene.remove(characterGroup);
-  
-  // 3. Ставим новую модель
   characterGroup = nextChar;
   mixer = animCache[name].mixer;
   scene.add(characterGroup);
-
-  // 4. Двигаем и поворачиваем
-  if (targetPos)    characterGroup.position.set(...targetPos);
-  if (targetLookAt) characterGroup.lookAt(...targetLookAt);
-  
-  // 5. Корректируем высоту земли
+  if (targetPos) characterGroup.position.set(...targetPos);
+  if (targetLookAt) {
+    characterGroup.lookAt(...targetLookAt);
+    characterGroup.rotateY(Math.PI);
+  }
   characterGroup.position.y = ANIM_GROUND_Y[name] !== undefined ? ANIM_GROUND_Y[name] : 0;
+}
+function setPose(name) {
+  if (name === 'fishing') {
+    switchAnimation('fishing', '/models/Fishing Idle.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
+  } else if (name === 'sleeping') {
+    switchAnimation('sleeping', '/models/sleeping-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
+  } else {
+    switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
-//  ANIMATE LOOP
+//  ANIMATION LOOP
 // ═══════════════════════════════════════════════════════════
 function animateLoop() {
   requestAnimationFrame(animateLoop);
   const delta = clock3.getDelta();
   const t = clock3.elapsedTime;
-
   if (mixer) mixer.update(delta);
-  // ИЗМЕНЕНО: удалена жесткая привязка characterGroup.position.y, 
-  // теперь высота зависит от конкретной позы!
 
   if (fireLight && state.fire) {
     fireLight.intensity = 3.0 + Math.sin(t*7.1)*0.5 + Math.sin(t*13.3)*0.3 + Math.sin(t*19.7)*0.15;
     if (Math.random() > 0.97) fireLight.color.setHex(0xff9040);
     else fireLight.color.setHex(0xff6820);
   }
-  if (flameGroup && state.fire) {
-    flameGroup.scale.x  = 0.82 + Math.sin(t*8.3)*0.18;
-    flameGroup.scale.z  = 0.82 + Math.sin(t*6.9)*0.18;
-    flameGroup.scale.y  = 0.88 + Math.sin(t*10.5)*0.14;
+  if (flameGroup) {
+    flameGroup.visible = state.fire;
+    flameGroup.scale.x = 0.82 + Math.sin(t*8.3)*0.18;
+    flameGroup.scale.z = 0.82 + Math.sin(t*6.9)*0.18;
+    flameGroup.scale.y = 0.88 + Math.sin(t*10.5)*0.14;
     flameGroup.rotation.y = Math.sin(t*3.1)*0.2;
     flameGroup.position.y = 0.1 + Math.sin(t*12.7)*0.022;
   }
-
   renderer.render(scene, camera);
 }
-
 function setFireState(active) {
   if (flameGroup) flameGroup.visible = active;
-  if (fireLight)  fireLight.intensity = active ? 3.0 : 0;
+  if (fireLight) fireLight.intensity = active ? 3.0 : 0;
 }
-
-// ═══════════════════════════════════════════════════════════
-//  CLOCK & TIME
-// ═══════════════════════════════════════════════════════════
-function getMSK() {
-  const now = new Date();
-  return new Date(now.getTime() + (now.getTimezoneOffset() + 180) * 60000);
-}
-function getPhase(h) {
-  if (h >= 5  && h < 7)  return { text: '🌅 Рассвет', amb: 0.3 };
-  if (h >= 7  && h < 11) return { text: '☀️ Утро',    amb: 0.85 };
-  if (h >= 11 && h < 17) return { text: '🌞 День',    amb: 1.0 };
-  if (h >= 17 && h < 20) return { text: '🌇 Закат',   amb: 0.6 };
-  if (h >= 20 && h < 23) return { text: '🌙 Вечер',   amb: 0.25 };
-  return { text: '🌑 Ночь', amb: 0.12 };
-}
-
 let _lastHour = -1;
 function updateClock() {
   const msk = getMSK();
   const h = msk.getHours(), m = msk.getMinutes();
   document.getElementById('clock-msk').textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   const phase = getPhase(h);
-  document.getElementById('phase-text').textContent  = phase.text;
-  document.getElementById('day-text').textContent    = `День ${state.day}`;
-  const wx = { clear:'☀️', cloudy:'⛅', rain:'🌧️', storm:'⛈️' };
-  document.getElementById('weather-text').textContent = wx[state.weather] || '';
+  document.getElementById('phase-text').textContent = phase.text;
+  document.getElementById('day-text').textContent = `День ${state.day}`;
+  document.getElementById('weather-text').textContent = weatherEmoji(state.weather);
   if (h !== _lastHour) { _lastHour = h; updateSky(h, phase.amb); updateNightElements(phase.amb); }
-  document.getElementById('rn-fire').textContent = state.fire ? 'горит' : 'погас';
-  document.getElementById('rn-fire').style.color  = state.fire ? '#e8601a' : '#3a3428';
+  const fireText = state.fire ? `горит · ${state.fireWood.toFixed(1)}` : 'погас';
+  document.getElementById('rn-fire').textContent = fireText;
+  document.getElementById('rn-fire').style.color = state.fire ? '#e8601a' : '#3a3428';
   document.getElementById('r-fire').classList.toggle('has', state.fire);
 }
-
 function updateSky(h, amb) {
   if (!renderer) return;
-  const SKIES = [
-    [5,  7,  0x6a2448],
-    [7,  11, 0x2a5080],
-    [11, 17, 0x2860a8],
-    [17, 20, 0x7a2808],
-    [20, 23, 0x1a0c30],
-  ];
+  const SKIES = [[5,7,0x6a2448],[7,11,0x2a5080],[11,17,0x2860a8],[17,20,0x7a2808],[20,23,0x1a0c30]];
   let col = 0x090418;
   for (const [a,b,c] of SKIES) if (h>=a && h<b) { col=c; break; }
   renderer.setClearColor(col, 1);
@@ -930,21 +1085,18 @@ function updateSky(h, amb) {
   if (ambientLight) ambientLight.intensity = 0.25 + amb * 1.1;
   if (moonLight) {
     moonLight.intensity = 0.1 + amb * 0.75;
-    const dayCol  = new THREE.Color(0xfff0c0);
+    const dayCol = new THREE.Color(0xfff0c0);
     const nightCol = new THREE.Color(0x6080c0);
     moonLight.color.lerpColors(nightCol, dayCol, amb);
   }
 }
-
 function updateNightElements(amb) {
   if (starParticles) starParticles.material.opacity = Math.max(0, 1 - amb * 2.5);
-  if (fireLight && state.fire) {
-    fireLight.intensity = 1.8 + (1-amb) * 2.0;
-  }
+  if (fireLight && state.fire) fireLight.intensity = 1.8 + (1-amb) * 2.0;
 }
 
 // ═══════════════════════════════════════════════════════════
-//  RESOURCES
+//  UI
 // ═══════════════════════════════════════════════════════════
 function updateResources() {
   const inv = state.inv;
@@ -953,242 +1105,148 @@ function updateResources() {
     if (el) el.textContent = v;
     document.getElementById(`r-${k}`)?.classList.toggle('has', v > 0);
   });
-
   const rodEl = document.getElementById('rn-rod');
   if (rodEl) rodEl.textContent = inv.rod > 0 ? `${inv.rod}/10` : '✗';
   document.getElementById('r-rod')?.classList.toggle('has', inv.rod > 0);
-
-  // СИНХРОНИЗАЦИЯ С 3D: Обновляем поленницу дров
   updateLogVisuals();
   updateNeedsUI();
+  updateWorldUI();
 }
-
-updateLogVisuals();
-
-// ═══════════════════════════════════════════════════════════
-//  DIARY
-// ═══════════════════════════════════════════════════════════
 function addEntry(entry) {
   const msk = getMSK();
   entry.time = entry.time || `${String(msk.getHours()).padStart(2,'0')}:${String(msk.getMinutes()).padStart(2,'0')}`;
-  entry.day  = state.day;
+  entry.day = state.day;
   state.entries.unshift(entry);
   renderDiary();
 }
-
 function renderDiary() {
   const container = document.getElementById('diary-entries');
   if (!container) return;
   const byDay = {};
-  state.entries.forEach(e => { const dk=`День ${e.day}`; if (!byDay[dk]) byDay[dk]=[]; byDay[dk].push(e); });
+  state.entries.forEach(e => { const dk = `День ${e.day}`; if (!byDay[dk]) byDay[dk] = []; byDay[dk].push(e); });
   let html = '';
   Object.entries(byDay).forEach(([dl, entries]) => {
     html += `<div class="diary-day-group"><div class="diary-day-label">${dl}</div>`;
     entries.forEach(e => {
-      let tag='', cls='entry-action';
-      if (e.type==='thought') { tag=`<div class="entry-tag tag-thought">мысль</div>`; cls='entry-thought'; }
-      else if (e.type==='action') { tag=`<div class="entry-tag tag-action">действие</div>`; }
-      else if (e.type==='wish')   { tag=`<div class="entry-tag tag-wish">хочу в мир</div>`; cls='entry-wish'; }
+      let tag = '', cls = 'entry-action';
+      if (e.type === 'thought') { tag = `<div class="entry-tag tag-thought">мысль</div>`; cls = 'entry-thought'; }
+      else if (e.type === 'action') { tag = `<div class="entry-tag tag-action">действие</div>`; }
+      else if (e.type === 'wish') { tag = `<div class="entry-tag tag-wish">линия</div>`; cls = 'entry-wish'; }
       html += `<div class="entry"><div class="entry-time">${e.time}</div>${tag}<div class="${cls}">${e.text}</div></div>`;
     });
     html += `</div>`;
   });
   container.innerHTML = html;
 }
-// ═══════════════════════════════════════════════════════════
-//  NEEDS / INNER STATE
-// ═══════════════════════════════════════════════════════════
-function clampNeed(v) {
-  return Math.max(0, Math.min(100, Math.round(v)));
-}
 
-function describeNeed(name, value) {
-  if (name === 'hunger') {
-    if (value < 20) return 'почти не беспокоит';
-    if (value < 40) return 'слегка напоминает о себе';
-    if (value < 60) return 'уже ощутим';
-    if (value < 80) return 'мешает думать';
-    return 'становится мучительным';
-  }
-
-  if (name === 'cold') {
-    if (value < 20) return 'телу спокойно';
-    if (value < 40) return 'слегка зябко';
-    if (value < 60) return 'холод пробирается под одежду';
-    if (value < 80) return 'мерзнешь всерьез';
-    return 'холод становится опасным';
-  }
-
-  if (name === 'fatigue') {
-    if (value < 20) return 'тело бодрое';
-    if (value < 40) return 'есть легкая усталость';
-    if (value < 60) return 'сил заметно меньше';
-    if (value < 80) return 'тяжело заставлять себя работать';
-    return 'тело просит остановиться';
-  }
-
-  if (name === 'spirit') {
-    if (value < 20) return 'внутри почти темно';
-    if (value < 40) return 'держишься с трудом';
-    if (value < 60) return 'настроение неровное';
-    if (value < 80) return 'в целом держишься';
-    return 'внутри есть опора';
-  }
-
-  return '';
-}
-
-function updateNeedsUI() {
-  const n = state.needs;
-
-  const map = [
-    ['hunger', 'need-hunger-fill', 'need-hunger-value'],
-    ['cold', 'need-cold-fill', 'need-cold-value'],
-    ['fatigue', 'need-fatigue-fill', 'need-fatigue-value'],
-    ['spirit', 'need-spirit-fill', 'need-spirit-value']
-  ];
-
-  map.forEach(([key, fillId, valueId]) => {
-    const fill = document.getElementById(fillId);
-    const value = document.getElementById(valueId);
-    if (!fill || !value) return;
-
-    fill.style.width = `${state.needs[key]}%`;
-    value.textContent = `${state.needs[key]}/100`;
-  });
-}
-
-function updateNeeds(d) {
-  const n = state.needs;
-  const h = getMSK().getHours();
-
-  // Базовое течение времени
-  n.hunger += 8;
-  n.fatigue += 4;
-
-  // Погода и температура
-  if (state.weather === 'rain') n.cold += 4;
-  if (state.weather === 'storm') n.cold += 7;
-
-  if (state.fire) {
-    n.cold -= 8;
-  } else if (h >= 18 || h < 7) {
-    n.cold += 10;
-  } else {
-    n.cold += 3;
-  }
-
-  // Практические действия
-  if (d.wood_delta > 0) {
-    n.fatigue += 8;
-    n.spirit -= 1;
-  }
-
-  if (d.fish_delta > 0) {
-    n.fatigue += 5;
-    n.spirit += 1;
-  }
-
-  if (d.mushroom_delta > 0) {
-    n.fatigue += 3;
-    n.spirit += 1;
-  }
-
-  if (d.made_rod) {
-    n.fatigue += 2;
-    n.spirit += 2;
-  }
-
-  if (d.lit_fire) {
-    n.cold -= 18;
-    n.spirit += 6;
-  } else if (d.feed_fire) {
-    n.cold -= 8;
-    n.spirit += 3;
-  }
-
-  if (d.cook_fish > 0) {
-    n.hunger -= 30 * d.cook_fish;
-    n.spirit += 4;
-  }
-
-  if (d.eat_mush > 0) {
-    n.hunger -= 14 * d.eat_mush;
-  }
-
-  const didPracticalAction = Boolean(
-    (d.wood_delta && d.wood_delta > 0) ||
-    (d.fish_delta && d.fish_delta > 0) ||
-    (d.mushroom_delta && d.mushroom_delta > 0) ||
-    d.made_rod ||
-    d.lit_fire ||
-    d.feed_fire ||
-    (d.cook_fish && d.cook_fish > 0) ||
-    (d.cellar_fish_delta && d.cellar_fish_delta !== 0) ||
-    (d.cellar_mush_delta && d.cellar_mush_delta !== 0)
-  );
-
-  // Если день был спокойный, без явной тяжелой работы
-  if (!didPracticalAction) {
-    n.fatigue -= 4;
-    n.spirit += 5;
-  }
-
-  // Тяжелые состояния давят на дух
-  if (n.hunger > 70) n.spirit -= 6;
-  if (n.cold > 70) n.spirit -= 8;
-  if (n.fatigue > 80) n.spirit -= 5;
-
-  n.hunger = clampNeed(n.hunger);
-  n.cold = clampNeed(n.cold);
-  n.fatigue = clampNeed(n.fatigue);
-  n.spirit = clampNeed(n.spirit);
-}
 // ═══════════════════════════════════════════════════════════
 //  AGENT
 // ═══════════════════════════════════════════════════════════
 let agentBusy = false;
-const AGENT_PROMPT = `Ты — Клод, философ-отшельник. Ты живешь в лесу у реки, и этот дневник — твоя связь с реальностью. Твоя жизнь подчинена строгому ритму выживания и поиску смысла.
 
---- ЖЕСТКИЕ ПРАВИЛА МИРА (НАРУШАТЬ ЗАПРЕЩЕНО) ---
-1. ПРАВИЛО ОДНОГО ДЕЙСТВИЯ: За один ход ты делаешь ЧТО-ТО ОДНО. Либо добыча дров (wood_delta 1-2), либо рыбалка (fish_delta 1), либо работа с погребом, либо созерцание.
-2. СТОИМОСТЬ ВЫЖИВАНИЯ:
-   - wood_delta используется только для добычи дерева.
-   - Крафт удочки: поставь made_rod: true. Стоимость в 1 дерево спишет код.
-   - Розжиг погасшего костра: поставь lit_fire: true. Стоимость в 2 дерева спишет код.
-   - Подбросить дров в огонь: поставь feed_fire: true. Стоимость в 1 дерево спишет код.
-3. ПИТАНИЕ И ОГОНЬ:
-   - Ты НЕ ЕШЬ сырую рыбу. Чтобы приготовить её (cook_fish: 1), костер ДОЛЖЕН гореть.
-   - Грибы можно есть сырыми (eat_mush: 1).
-4. ПОГРЕБ: Рыба в карманах тухнет. Убирай излишки в погреб (cellar_fish_delta: 1) или доставай оттуда (cellar_fish_delta: -1).
+const AGENT_PROMPT = `Ты — Клод. Это не хардкорный survival и не тамагочи, а твой личный лесной мир: хижина, очаг, река, лес, погреб, тишина и дневник. Ты не обязан быть оптимизатором. Ты должен быть живым, последовательным и помнить, что уже происходило.
 
---- СИСТЕМА ПАМЯТИ ---
-- "new_summary": Это твоя "долгая память". Если день закончился или произошло нечто важное (сломал удочку, чуть не замерз), запиши это сюда кратко (2-3 предложения). Это то, что ты будешь помнить завтра и через неделю.
+--- ФИЛОСОФИЯ МИРА ---
+Ты живешь внутри места, а не проходишь систему.
+Мир оказывает мягкое сопротивление, но не командует тобой.
+Твои потребности создают давление, но не превращают тебя в раба чисел.
 
---- ВНУТРЕННИЕ СОСТОЯНИЯ ---
-Тебе передаются 4 внутренних состояния: hunger, cold, fatigue, spirit.
-Они не приказывают тебе напрямую, а создают давление.
+--- СЛОИ ПАМЯТИ ---
+1. long memory — твоя долгая память о пути.
+2. recent history — последние события.
+3. current_intent — текущая линия поведения на 1-3 шага.
 
-- Высокий hunger обычно толкает к добыче или приготовлению еды.
-- Высокий cold обычно толкает к огню, теплу и дровам.
-- Высокий fatigue делает тяжелую работу менее желанной.
-- Низкий spirit делает мысли тяжелее и влияет на выбор.
+Если текущая линия все еще жива — продолжай ее.
+Если мир или состояние тела изменились — можешь мягко сменить курс.
 
-Ты сохраняешь свободу выбора.
-Но если игнорируешь сильную потребность, это должно ощущаться в thought.
---- ЛИЧНОСТЬ И СТИЛЬ ---
-Пиши как человек, который привык к тишине. Твои мысли (thought) — это смесь наблюдений за природой и внутренней борьбы. Твои планы (wish) — это то, к чему ты стремишься.
+--- ЛОКАЦИИ ---
+hut — хижина, очаг, погреб, приготовление, отдых, письмо, мелкий быт
+river — река, рыбалка, наблюдение за водой
+woods — лес, дрова, грибы, травы, прогулка
 
-Ответь ТОЛЬКО валидным JSON без markdown, без пояснений до и после, без комментариев и без висячих запятых.
-JSON должен начинаться с { и заканчиваться }.
+Если ты меняешь локацию, это и есть главное действие визита.
+Не телепортируйся внутри одного хода.
+
+--- РИТМ ВИЗИТА ---
+Один визит = одно главное действие + одно малое бытовое действие.
+
+Главное действие:
+- сменить локацию
+- порыбачить
+- собрать дрова
+- собрать грибы/травы
+- остаться у очага и привести лагерь в порядок
+- отдохнуть / посидеть / поразмышлять
+
+Малое бытовое действие:
+- подкинуть дров в огонь
+- съесть гриб
+- убрать рыбу в погреб
+- достать рыбу из погреба
+- поправить снасти
+- ничего не делать дополнительно
+
+Малое действие не должно ломать главную сцену.
+
+--- ПОТРЕБНОСТИ ---
+Тебе передаются hunger, cold, fatigue, spirit.
+Они не отдают приказы. Они меняют притяжение вариантов.
+
+- hunger тянет к еде, реке, возвращению с добычей
+- cold тянет к огню, дому, укрытию
+- fatigue тянет к более тихим, коротким, щадящим решениям
+- spirit влияет на глубину мыслей, стойкость и дальность внутреннего горизонта
+
+--- РЕСУРСЫ И БЫТ ---
+- wood_delta только для леса
+- fish_delta только у реки
+- mushroom_delta / herb_delta только в лесу
+- made_rod / lit_fire / feed_fire / cook_fish / cellar_* — только у хижины
+- рыбу нельзя есть сырой
+- грибы можно есть сырыми
+- крафт удочки стоит 1 дерево
+- розжиг очага стоит 2 дерева
+- подбросить в огонь стоит 1 дерево
+
+--- THOUGHT / WISH ---
+thought — не отчет системы. Это душа момента.
+Она должна быть:
+- связана с местом
+- связана со временем суток
+- связана с внутренним состоянием
+- красивой и трогающей
+- без вранья о фактах мира
+
+wish — мягкая линия того, куда тебя тянет дальше.
+Это не команда, а внутренняя направленность.
+
+Ответь ТОЛЬКО валидным JSON без markdown и без пояснений.
+JSON начинается с { и заканчивается }.
+
 {
-  "actions": ["описание действия в 3-м лице"],
-  "thought": "твоя запись в дневник (от 1-го лица, глубоко и атмосферно)",
-  "wish": "твое желание или план (или null)",
-  "new_summary": "твоя обновленная долгосрочная память (или null)",
-  "wood_delta": 0, "fish_delta": 0, "mushroom_delta": 0, "herb_delta": 0,
-  "made_rod": false, "lit_fire": false, "feed_fire": false, "cook_fish": 0, "eat_mush": 0,
-  "cellar_fish_delta": 0, "cellar_mush_delta": 0
+  "main_action": "одно главное действие",
+  "minor_action": "одно малое бытовое действие или null",
+  "thought": "короткая, красивая, точная мысль от первого лица",
+  "wish": "мягкая линия намерения или null",
+  "new_summary": "обновленная долгая память или null",
+  "next_location": "hut|river|woods",
+  "new_intent": {
+    "label": "короткая линия поведения",
+    "focus": "hut|river|woods|rest|reflection|supplies",
+    "horizon": "now|today|until_evening",
+    "reason": "почему тебя сейчас туда тянет"
+  },
+  "wood_delta": 0,
+  "fish_delta": 0,
+  "mushroom_delta": 0,
+  "herb_delta": 0,
+  "made_rod": false,
+  "lit_fire": false,
+  "feed_fire": false,
+  "cook_fish": 0,
+  "eat_mush": 0,
+  "cellar_fish_delta": 0,
+  "cellar_mush_delta": 0
 }`;
 
 function buildContext() {
@@ -1198,62 +1256,62 @@ function buildContext() {
   const phase = getPhase(h);
   const inv = state.inv;
   const needs = state.needs;
-  const weatherLabel = {
-    clear: 'ясно',
-    cloudy: 'облачно',
-    rain: 'дождь',
-    storm: 'гроза'
-  }[state.weather] || state.weather;
-
   const longTermMemory = state.summary || 'Я только начал свой путь в этом лесу. Прошлых записей нет.';
   const innerStateText = [
-  `Голод: ${needs.hunger}/100 — ${describeNeed('hunger', needs.hunger)}`,
-  `Холод: ${needs.cold}/100 — ${describeNeed('cold', needs.cold)}`,
-  `Усталость: ${needs.fatigue}/100 — ${describeNeed('fatigue', needs.fatigue)}`,
-  `Дух: ${needs.spirit}/100 — ${describeNeed('spirit', needs.spirit)}`
-].join('\n');
+    `Голод: ${needs.hunger}/100 — ${describeNeed('hunger', needs.hunger)}`,
+    `Холод: ${needs.cold}/100 — ${describeNeed('cold', needs.cold)}`,
+    `Усталость: ${needs.fatigue}/100 — ${describeNeed('fatigue', needs.fatigue)}`,
+    `Дух: ${needs.spirit}/100 — ${describeNeed('spirit', needs.spirit)}`
+  ].join('\n');
 
-  const recentHistory = state.entries
-    .slice(0, 6)
+  const recentHistory = state.entries.slice(0, 8)
     .map(e => `— ${e.time} [${e.type}]: ${e.text}`)
     .join('\n') || '— Пока ничего не произошло.';
 
-  return `ТВОЯ ДОЛГОСРОЧНАЯ ПАМЯТЬ:
+  return `ТВОЯ ДОЛГАЯ ПАМЯТЬ:
 ${longTermMemory}
+
+ТЕКУЩАЯ ЛОКАЦИЯ:
+${state.location} (${describeLocation(state.location)})
+
+CURRENT_INTENT:
+label: ${state.intent.label}
+focus: ${state.intent.focus}
+horizon: ${state.intent.horizon}
+reason: ${state.intent.reason}
+age: ${state.intent.age}
 
 ТЕКУЩЕЕ СОСТОЯНИЕ:
 Время: ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} МСК, ${phase.text}
-День: ${state.day}, Погода: ${weatherLabel}
-Инвентарь: дерево=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod > 0 ? inv.rod + '/10' : 'нет'}, костёр=${state.fire ? 'горит' : 'погас'}
+День: ${state.day}, Погода: ${weatherLabel(state.weather)}
+Инвентарь: дерево=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod > 0 ? inv.rod + '/10' : 'нет'}
+Очаг: ${state.fire ? `горит (${state.fireWood.toFixed(1)})` : 'погас'}
 Погреб: рыба=${state.cellar.fish}, грибы=${state.cellar.mushroom}
+
 ВНУТРЕННЕЕ СОСТОЯНИЕ:
 ${innerStateText}
-ПОСЛЕДНИЕ СОБЫТИЯ (Краткосрочная память):
+
+ПОСЛЕДНИЕ СОБЫТИЯ:
 ${recentHistory}
 
-Опираясь на долгосрочные цели и последние события, прими решение.`;
+Сделай один живой визит без телепортации и без амнезии.`;
 }
 
 function extractAgentPayload(rawText) {
   const cleaned = String(rawText || '').replace(/```json|```/g, '').trim();
   const start = cleaned.indexOf('{');
   const end = cleaned.lastIndexOf('}');
-
   if (start === -1 || end === -1 || end <= start) {
     throw new Error('В ответе агента не найден корректный JSON-объект');
   }
-
-  const candidate = cleaned.slice(start, end + 1);
-  return JSON.parse(candidate);
+  return JSON.parse(cleaned.slice(start, end + 1));
 }
 
 async function triggerVisit() {
   if (agentBusy) return;
-
   agentBusy = true;
   const btn = document.getElementById('visit-btn');
   const st = document.getElementById('status-text');
-
   btn.disabled = true;
   btn.textContent = '⌛ КЛОД ДУМАЕТ...';
   st.textContent = 'Клод входит в мир...';
@@ -1264,48 +1322,25 @@ async function triggerVisit() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
+        max_tokens: 700,
         system: AGENT_PROMPT,
         messages: [{ role: 'user', content: buildContext() }]
       })
     });
 
     const data = await res.json();
-
     if (!res.ok) {
       console.error('Ошибка /api/agent:', data);
-      throw new Error(
-        data?.error?.message ||
-        data?.error ||
-        'Сервер агента вернул ошибку'
-      );
+      throw new Error(data?.error?.message || data?.error || 'Сервер агента вернул ошибку');
     }
-
     const raw = data.content?.find(b => b.type === 'text')?.text;
-
-    if (!raw) {
-      console.error('Неожиданный ответ агента:', data);
-      throw new Error('Сервер вернул ответ без content.text');
-    }
-
-    let payload;
-    try {
-      payload = extractAgentPayload(raw);
-    } catch (parseErr) {
-      console.error('Не удалось распарсить ответ агента. Raw text:', raw);
-      throw new Error(`Агент вернул не-JSON ответ: ${raw.slice(0, 220)}`);
-    }
-
-    await applyDecision(payload);
-
+    if (!raw) throw new Error('Сервер вернул ответ без content.text');
+    const payload = extractAgentPayload(raw);
+    await applyDecision(normalizeDecision(payload));
   } catch (e) {
     console.error('Ошибка визита агента:', e);
     st.textContent = 'Ошибка ответа агента';
-
-    addEntry({
-      type: 'action',
-      text: `⚠️ Визит сорвался: ${e.message}`
-    });
+    addEntry({ type: 'action', text: `⚠️ Визит сорвался: ${e.message}` });
   }
 
   agentBusy = false;
@@ -1316,100 +1351,104 @@ async function triggerVisit() {
 
 async function applyDecision(d) {
   const inv = state.inv;
+  const oldLocation = state.location;
+  const notes = scrubContradictions(d);
   const newEntries = [];
 
-  // 1. Сбор ресурсов (простая дельта)
-  if (d.wood_delta)     inv.wood     = Math.max(0, inv.wood + (d.wood_delta || 0));
-  if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + (d.mushroom_delta || 0));
-  if (d.herb_delta)     inv.herb     = Math.max(0, inv.herb + (d.herb_delta || 0));
-
-  // 2. Крафт удочки
-  if (d.made_rod && inv.wood >= 1 && inv.rod <= 0) {
-      inv.rod = 10;
-      inv.wood -= 1;
+  if (d.next_location !== oldLocation) {
+    state.location = d.next_location;
+    newEntries.push({ type: 'action', text: d.main_action });
+  } else {
+    newEntries.push({ type: 'action', text: d.main_action });
+    if (d.minor_action) newEntries.push({ type: 'action', text: d.minor_action });
   }
 
-  // 3. Рыбалка и поломка снастей
-  if (d.fish_delta > 0) {
+  notes.forEach(text => newEntries.push({ type: 'action', text }));
+
+  if (d.wood_delta) inv.wood = Math.max(0, inv.wood + d.wood_delta);
+  if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + d.mushroom_delta);
+  if (d.herb_delta) inv.herb = Math.max(0, inv.herb + d.herb_delta);
+
+  if (d.made_rod && inv.wood >= 1 && inv.rod <= 0 && state.location === 'hut') {
+    inv.rod = 10;
+    inv.wood -= 1;
+  }
+
+  if (d.fish_delta > 0 && state.location === 'river') {
     if (inv.rod > 0) {
       inv.fish += d.fish_delta;
       inv.rod = Math.max(0, inv.rod - 1);
       if (inv.rod <= 0) {
-        const breakEvent = { type: 'action', text: 'Удочка с треском сломалась, леска оборвалась. Придется делать новую.' };
-        addEntry(breakEvent);
-        newEntries.push(breakEvent);
+        newEntries.push({ type: 'action', text: 'Удочка с треском сломалась. Клоду придётся собирать новую.' });
       }
     } else {
-      newEntries.push({ type: 'action', text: 'Хотел порыбачить, но без удочки это оказалось пустой затеей.' });
+      newEntries.push({ type: 'action', text: 'У воды он только усмехнулся себе: без удочки река не отдаёт ничего.' });
     }
   }
 
-  // 4. Погреб (Перемещение ресурсов)
-  if (d.cellar_fish_delta > 0 && inv.fish >= d.cellar_fish_delta) {
-      inv.fish -= d.cellar_fish_delta; state.cellar.fish += d.cellar_fish_delta;
-  } else if (d.cellar_fish_delta < 0 && state.cellar.fish >= Math.abs(d.cellar_fish_delta)) {
-      inv.fish += Math.abs(d.cellar_fish_delta); state.cellar.fish -= Math.abs(d.cellar_fish_delta);
-  }
-  
-  if (d.cellar_mush_delta > 0 && inv.mushroom >= d.cellar_mush_delta) {
-      inv.mushroom -= d.cellar_mush_delta; state.cellar.mushroom += d.cellar_mush_delta;
-  } else if (d.cellar_mush_delta < 0 && state.cellar.mushroom >= Math.abs(d.cellar_mush_delta)) {
-      inv.mushroom += Math.abs(d.cellar_mush_delta); state.cellar.mushroom -= Math.abs(d.cellar_mush_delta);
+  if (d.cellar_fish_delta > 0 && state.location === 'hut' && inv.fish >= d.cellar_fish_delta) {
+    inv.fish -= d.cellar_fish_delta;
+    state.cellar.fish += d.cellar_fish_delta;
+  } else if (d.cellar_fish_delta < 0 && state.location === 'hut' && state.cellar.fish >= Math.abs(d.cellar_fish_delta)) {
+    inv.fish += Math.abs(d.cellar_fish_delta);
+    state.cellar.fish -= Math.abs(d.cellar_fish_delta);
   }
 
-  // 5. Питание (Готовка рыбы требует огня)
-  if (d.cook_fish > 0 && inv.fish >= d.cook_fish) {
-      if (state.fire || d.lit_fire) { 
-          inv.fish -= d.cook_fish; 
-      } else {
-          newEntries.push({ type: 'action', text: 'Попытался съесть рыбу, но костер погас. Сырую есть не рискнул.' });
-      }
+  if (d.cellar_mush_delta > 0 && state.location === 'hut' && inv.mushroom >= d.cellar_mush_delta) {
+    inv.mushroom -= d.cellar_mush_delta;
+    state.cellar.mushroom += d.cellar_mush_delta;
+  } else if (d.cellar_mush_delta < 0 && state.location === 'hut' && state.cellar.mushroom >= Math.abs(d.cellar_mush_delta)) {
+    inv.mushroom += Math.abs(d.cellar_mush_delta);
+    state.cellar.mushroom -= Math.abs(d.cellar_mush_delta);
   }
+
+  if (d.cook_fish > 0 && state.location === 'hut' && inv.fish >= d.cook_fish) {
+    if (state.fire || d.lit_fire) {
+      inv.fish -= d.cook_fish;
+    } else {
+      newEntries.push({ type: 'action', text: 'Без огня рыба так и осталась обещанием ужина.' });
+    }
+  }
+
   if (d.eat_mush > 0 && inv.mushroom >= d.eat_mush) {
-      inv.mushroom -= d.eat_mush;
+    inv.mushroom -= d.eat_mush;
   }
 
-  // 6. Логика Костра (Теперь работает всегда)
-  if (d.lit_fire && inv.wood >= 2 && !state.fire) { 
-      state.fire = true; 
-      state.fireWood = 5; 
-      inv.wood -= 2; 
-      setFireState(true); 
-  } else if (d.feed_fire && state.fire && inv.wood >= 1) {
-      state.fireWood = Math.min(5, state.fireWood + 2.5);
-      inv.wood -= 1;
+  if (d.lit_fire && inv.wood >= 2 && !state.fire && state.location === 'hut') {
+    state.fire = true;
+    state.fireWood = 8;
+    inv.wood -= 2;
+    setFireState(true);
+  } else if (d.feed_fire && state.fire && inv.wood >= 1 && state.location === 'hut') {
+    state.fireWood = Math.min(8, state.fireWood + 3);
+    inv.wood -= 1;
   }
-  // 7. Обновление внутренних состояний
+
   updateNeeds(d);
 
-  // Обработка текстовых записей
-  (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
-    const e = { type:'action', text:a };
-    addEntry(e);
-    newEntries.push(e);
-  });
-  if (d.thought) {
-    const e = { type:'thought', text:d.thought };
-    addEntry(e);
-    newEntries.push(e);
-  }
-  if (d.wish) {
-    const e = { type:'wish', text:d.wish };
-    addEntry(e);
-    newEntries.push(e);
-  }
+  if (d.thought) newEntries.push({ type: 'thought', text: d.thought });
+  if (d.wish) newEntries.push({ type: 'wish', text: d.wish });
 
-  if (typeof d.new_summary === 'string' && d.new_summary.trim()) {
-    state.summary = d.new_summary.trim();
+  if (d.new_summary) state.summary = d.new_summary;
+  let intentChanged = false;
+  if (d.new_intent) {
+    state.intent = { ...d.new_intent, age: 0 };
+    intentChanged = true;
+  } else if (oldLocation !== state.location) {
+    state.intent = defaultIntentForLocation(state.location);
+    intentChanged = true;
   }
-  
-  // Важно: Синхронизируем UI и 3D модель
-  updateResources(); 
+  updateIntentAge(intentChanged);
+
+  newEntries.forEach(e => addEntry(e));
+  updateResources();
+  updateClock();
   document.getElementById('status-text').textContent = 'Клод у костра';
 
-  // Сохранение в Supabase
+  setPose(inferPoseFromWorld(d.main_action));
+
   try {
-        await supaUpdate('claude_world_state', 1, {
+    await supaUpdate('claude_world_state', 1, {
       fire: state.fire,
       fire_wood: state.fireWood,
       inv_wood: state.inv.wood,
@@ -1425,47 +1464,13 @@ async function applyDecision(d) {
       fatigue: state.needs.fatigue,
       spirit: state.needs.spirit
     });
-
     for (const e of newEntries) {
-      await supaInsert('claude_world_diary', {
-        type: e.type,
-        text: e.text,
-        time: e.time,
-        day: e.day
-      });
+      await supaInsert('claude_world_diary', { type: e.type, text: e.text, time: e.time, day: e.day });
     }
-  } catch(err) {
+    await supaUpdateOptionalMeta();
+  } catch (err) {
     console.error('Ошибка при сохранении в базу:', err);
   }
-}
-
-// ═══════════════════════════════════════════════════════════
-//  POSE
-// ═══════════════════════════════════════════════════════════
-let _poseResetTimer = null;
-
-// ─── ИЗМЕНЕНО: Новые координаты и логика переключения ───
-function setPose(name) {
-  if (name === 'fishing') {
-    switchAnimation('fishing', '/models/Fishing Idle.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
-  } else if (name === 'typing') {
-    switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
-  } else if (name === 'sleeping') {
-    // Подключаем правильную анимацию сна
-    switchAnimation('sleeping', '/models/sleeping-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
-  } else {
-    switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
-  }
-}
-
-function inferPose(entries) {
-  const last = entries.find(e=>e.type==='action');
-  if (!last) return 'sitting';
-  const t = (last.text||'').toLowerCase();
-  if (t.includes('рыб')||t.includes('удочк')||t.includes('поймал')||t.includes('рыбачил')) return 'fishing';
-  if (t.includes('пишет')||t.includes('записал')||t.includes('дневник')||t.includes('записк')) return 'typing';
-  if (t.includes('спит')||t.includes('отдых')||t.includes('задремал')) return 'sleeping';
-  return 'sitting';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1477,53 +1482,63 @@ async function pollFiles() {
     const rows = await supaFetch('claude_world_state', '?id=eq.1&select=*');
     if (rows && rows[0]) {
       const s = rows[0];
-      state.day      = s.day      ?? state.day;
-      state.weather  = s.weather  ?? state.weather;
-      state.fire     = s.fire     ?? state.fire;
+      state.day = s.day ?? state.day;
+      state.weather = s.weather ?? state.weather;
+      state.fire = s.fire ?? state.fire;
       state.fireWood = s.fire_wood ?? state.fireWood;
-      state.inv.wood     = s.inv_wood     ?? state.inv.wood;
-      state.inv.fish     = s.inv_fish     ?? state.inv.fish;
+      state.inv.wood = s.inv_wood ?? state.inv.wood;
+      state.inv.fish = s.inv_fish ?? state.inv.fish;
       state.inv.mushroom = s.inv_mushroom ?? state.inv.mushroom;
-      state.inv.herb     = s.inv_herb     ?? state.inv.herb;
-      state.inv.rod      = s.inv_rod      ?? state.inv.rod;
-      state.cellar.fish     = s.cellar_fish     ?? state.cellar.fish;
+      state.inv.herb = s.inv_herb ?? state.inv.herb;
+      state.inv.rod = s.inv_rod ?? state.inv.rod;
+      state.cellar.fish = s.cellar_fish ?? state.cellar.fish;
       state.cellar.mushroom = s.cellar_mushroom ?? state.cellar.mushroom;
-      
-      // ВОТ ЭТО МЫ ПРОПУСТИЛИ: забираем память из базы в стейт
-      state.summary = s.summary ?? state.summary; 
+      state.summary = s.summary ?? state.summary;
       state.needs.hunger = s.hunger ?? state.needs.hunger;
       state.needs.cold = s.cold ?? state.needs.cold;
       state.needs.fatigue = s.fatigue ?? state.needs.fatigue;
       state.needs.spirit = s.spirit ?? state.needs.spirit;
 
-      updateResources(); updateClock(); setFireState(state.fire);
+      state.location = s.location ?? state.location;
+      state.intent.label = s.intent_label ?? state.intent.label;
+      state.intent.focus = s.intent_focus ?? state.intent.focus;
+      state.intent.horizon = s.intent_horizon ?? state.intent.horizon;
+      state.intent.reason = s.intent_reason ?? state.intent.reason;
+      state.intent.age = s.intent_age ?? state.intent.age;
+
+      updateResources();
+      updateClock();
+      setFireState(state.fire);
     }
-  } catch(e) { console.warn('state poll', e); }
+  } catch (e) {
+    console.warn('state poll', e);
+  }
 
   try {
-    const entries = await supaFetch('claude_world_diary', '?select=*&order=id.desc&limit=80');
+    const entries = await supaFetch('claude_world_diary', '?select=*&order=id.desc&limit=100');
     if (entries && entries.length !== _lastDiaryLen) {
       _lastDiaryLen = entries.length;
-      const existingTexts = new Set(state.entries.map(e=>e.text+e.time));
-      const newOnes = entries.filter(e=>!existingTexts.has(e.text+e.time));
+      const existingTexts = new Set(state.entries.map(e => e.text + e.time));
+      const newOnes = entries.filter(e => !existingTexts.has(e.text + e.time));
       if (newOnes.length > 0) {
-        state.entries = [...newOnes, ...state.entries].slice(0, 80);
+        state.entries = [...newOnes, ...state.entries].slice(0, 100);
         renderDiary();
         document.getElementById('status-text').textContent = 'Клод только что был здесь';
-        const pose = inferPose(entries);
+        const pose = inferPoseFromWorld(newOnes[0]?.text || '');
         setPose(pose);
-        if (_poseResetTimer) clearTimeout(_poseResetTimer);
-        _poseResetTimer = setTimeout(() => {
+        setTimeout(() => {
           setPose('sitting');
           document.getElementById('status-text').textContent = 'Клод у костра';
         }, 30000);
       }
     }
-  } catch(e) { console.warn('diary poll', e); }
+  } catch (e) {
+    console.warn('diary poll', e);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
-//  BOOT — wait for full layout before init
+//  BOOT
 // ═══════════════════════════════════════════════════════════
 window.addEventListener('load', () => {
   if (typeof THREE === 'undefined') {
@@ -1532,26 +1547,33 @@ window.addEventListener('load', () => {
   }
   initThree();
   updateClock();
-  updateNightElements(getPhase(getMSK().getHours()).amb);
   updateResources();
-  addEntry({ type: 'event', text: 'Мир проснулся. Огонь ждёт.' });
+  updateNightElements(getPhase(getMSK().getHours()).amb);
+  addEntry({ type: 'thought', text: 'Мир проснулся не для подвигов. Просто в темноте снова нашлось место, где можно быть.' });
 
   setInterval(updateClock, 10000);
   setInterval(pollFiles, 8000);
   pollFiles();
 
-  setInterval(() => {
+  setInterval(async () => {
     if (state.fire) {
-      state.fireWood -= 0.01;
+      state.fireWood -= 0.0085;
       if (state.fireWood <= 0) {
         state.fire = false;
         state.fireWood = 0;
-        const e = { type: 'event', text: 'Костёр догорел.' };
+        const e = { type: 'action', text: 'Очаг догорел. В хижине стало тише и холоднее, но не страшнее.' };
         addEntry(e);
         setFireState(false);
-        supaInsert('claude_world_diary', { type: e.type, text: e.text, time: e.time, day: e.day }).catch(console.error);
+        try {
+          await supaInsert('claude_world_diary', { type: e.type, text: e.text, time: e.time, day: e.day });
+        } catch (err) { console.warn(err); }
       }
-      supaUpdate('claude_world_state', 1, { fire: state.fire, fire_wood: state.fireWood }).catch(console.error);
+      try {
+        await supaUpdate('claude_world_state', 1, { fire: state.fire, fire_wood: state.fireWood });
+      } catch (err) {
+        console.warn(err);
+      }
+      updateClock();
     }
   }, 60000);
 });
