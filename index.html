@@ -983,7 +983,7 @@ function loadCharacter() {
       fbx.scale.setScalar(CHAR_SCALE);
       fbx.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
       fbx.lookAt(0, 0.5, 0);
-      fbx.rotation.y = Math.PI * 1.25;
+      fbx.rotateY(Math.PI);
       applyFBXMaterials(fbx);
       if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
       characterGroup = fbx;
@@ -1018,7 +1018,7 @@ async function switchAnimation(name, url, targetPos, targetLookAt) {
   if (targetPos) characterGroup.position.set(...targetPos);
   if (targetLookAt) {
     characterGroup.lookAt(...targetLookAt);
-    characterGroup.rotation.y = Math.PI * 1.25;
+    characterGroup.rotateY(Math.PI);
   }
   characterGroup.position.y = ANIM_GROUND_Y[name] !== undefined ? ANIM_GROUND_Y[name] : 0;
 }
