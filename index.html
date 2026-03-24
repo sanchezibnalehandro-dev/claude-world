@@ -1249,25 +1249,69 @@ function extractAgentPayload(rawText) {
 
 async function triggerVisit() {
   if (agentBusy) return;
+
   agentBusy = true;
-  const btn = document.getElementById('visit-btn'), st = document.getElementById('status-text');
-  btn.disabled = true; btn.textContent = '⌛ КЛОД ДУМАЕТ...'; st.textContent = 'Клод входит в мир...';
+  const btn = document.getElementById('visit-btn');
+  const st = document.getElementById('status-text');
+
+  btn.disabled = true;
+  btn.textContent = '⌛ КЛОД ДУМАЕТ...';
+  st.textContent = 'Клод входит в мир...';
+
   try {
     const res = await fetch('/api/agent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 600, system: AGENT_PROMPT, messages: [{ role: 'user', content: buildContext() }] })
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        system: AGENT_PROMPT,
+        messages: [{ role: 'user', content: buildContext() }]
+      })
     });
+
     const data = await res.json();
-    const raw = data.content?.find(b => b.type === 'text')?.text || '{}';
-    const payload = extractAgentPayload(raw);
+
+    if (!res.ok) {
+      console.error('Ошибка /api/agent:', data);
+      throw new Error(
+        data?.error?.message ||
+        data?.error ||
+        'Сервер агента вернул ошибку'
+      );
+    }
+
+    const raw = data.content?.find(b => b.type === 'text')?.text;
+
+    if (!raw) {
+      console.error('Неожиданный ответ агента:', data);
+      throw new Error('Сервер вернул ответ без content.text');
+    }
+
+    let payload;
+    try {
+      payload = extractAgentPayload(raw);
+    } catch (parseErr) {
+      console.error('Не удалось распарсить ответ агента. Raw text:', raw);
+      throw new Error(`Агент вернул не-JSON ответ: ${raw.slice(0, 220)}`);
+    }
+
     await applyDecision(payload);
-  } catch(e) {
+
+  } catch (e) {
     console.error('Ошибка визита агента:', e);
-    st.textContent = 'API не подключён — запусти через Cowork';
-    addEntry({ type: 'action', text: '⚠️ Для настоящего визита нужен прокси. Агент работает из Cowork.' });
+    st.textContent = 'Ошибка ответа агента';
+
+    addEntry({
+      type: 'action',
+      text: `⚠️ Визит сорвался: ${e.message}`
+    });
   }
-  agentBusy = false; btn.disabled = false; btn.textContent = '▶ ВИЗИТ АГЕНТА'; st.textContent = 'Клод у костра';
+
+  agentBusy = false;
+  btn.disabled = false;
+  btn.textContent = '▶ ВИЗИТ АГЕНТА';
+  st.textContent = 'Клод у костра';
 }
 
 async function applyDecision(d) {
