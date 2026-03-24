@@ -217,13 +217,7 @@ const state = {
   cellar: { fish: 0, mushroom: 0 },
   entries: [],
   lastVisit: null,
-  summary: '',
-  needs: {
-    hunger: 20,
-    cold: 10,
-    fatigue: 15,
-    spirit: 70
-  }
+  summary: ''
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -247,7 +241,6 @@ const mushroomPrefabs = [];
 let logPrefab = null;
 let logPileGroup;
 let worldMushroomsGroup; // Группа, в которой будут расти все наши грибы
-let packedLogSize = null;
 
 function loadMushroomPack() {
   const loader = new THREE.GLTFLoader();
@@ -317,6 +310,21 @@ function spawnRandomMushroom(x, z, group) {
 // ═══════════════════════════════════════════════════════════
 //  LOG PILE LOGIC (Умная поленница)
 // ═══════════════════════════════════════════════════════════
+function measurePackedLogSize() {
+  if (!logPrefab) return;
+
+  const probe = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
+  probe.scale.setScalar(0.003);
+  probe.rotation.x = Math.PI / 2;
+  probe.rotation.z = Math.PI / 2;
+  probe.rotation.y = 0;
+
+  const box = new THREE.Box3().setFromObject(probe);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  packedLogSize = size;
+}
+
 function loadLogModel() {
   const loader = new THREE.GLTFLoader();
   loader.load('/models/log_seat.glb', (gltf) => {
@@ -331,73 +339,32 @@ function loadLogModel() {
         child.castShadow = true;
         child.receiveShadow = true;
         logPrefab = child;
-        measurePackedLogSize();
       }
     });
     logPileGroup = new THREE.Group();
     logPileGroup.position.set(2.5, 0, -1.5); // Ставим на место старой статичной кучи
     scene.add(logPileGroup);
-    function measurePackedLogSize() {
-  if (!logPrefab) return;
-
-  const probe = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
-
-  // ВАЖНО: здесь должны стоять те же transform, что и у настоящих поленьев
-  probe.scale.setScalar(0.003);
-  probe.rotation.x = Math.PI / 2;
-  probe.rotation.z = Math.PI / 2;
-  probe.rotation.y = 0;
-
-  const box = new THREE.Box3().setFromObject(probe);
-  const size = new THREE.Vector3();
-  box.getSize(size);
-
-  packedLogSize = size;
-}
     updateLogVisuals(); 
   });
 }
 
 function updateLogVisuals() {
   if (!logPrefab || !logPileGroup) return;
-
-  while (logPileGroup.children.length > 0) {
-    logPileGroup.remove(logPileGroup.children[0]);
-  }
-
-  if (!packedLogSize) {
-    measurePackedLogSize();
-  }
+  while(logPileGroup.children.length > 0) { logPileGroup.remove(logPileGroup.children[0]); }
 
   const count = state.inv.wood || 0;
-
-  // Автошаг по реальному размеру модели
-  const stepX = packedLogSize ? packedLogSize.x * 1.02 : 0.08;
-  const stepY = packedLogSize ? packedLogSize.y * 0.75 : 0.015;
-
   for (let i = 0; i < count; i++) {
     const log = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
-    log.castShadow = true;
-    log.receiveShadow = true;
-
-    // ТВОЯ ТЕКУЩАЯ РАБОЧАЯ ОРИЕНТАЦИЯ
-    log.scale.setScalar(0.003);
-    log.rotation.x = Math.PI / 2;
+    log.scale.setScalar(0.003); // Масштаб для log_seat.glb
+    log.rotation.x = Math.PI / 2;   // положили
     log.rotation.z = Math.PI / 2;
-    log.rotation.y = 0;
+    log.rotation.y= 0; 
 
+    // Раскладка пирамидкой
     let x = 0, y = 0, z = 0;
-
-    // Укладка 3-2-1
-    if (i < 3) {
-      x = i * stepX;
-    } else if (i < 5) {
-      x = (i - 3) * stepX + stepX / 2;
-      y = stepY;
-    } else {
-      x = stepX;
-      y = stepY * 2;
-    }
+    if (i < 3) { x = i * 0.35; } 
+    else if (i < 5) { x = (i - 3) * 0.35 + 0.17; y = 0.2; } 
+    else { x = 0.35; y = 0.4; }
 
     log.position.set(x, y, z);
     logPileGroup.add(log);
@@ -714,7 +681,7 @@ function loadCharacter() {
     (fbx) => {
       fbx.scale.setScalar(CHAR_SCALE);
       fbx.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
-      fbx.lookAt(0, 0.5, 0);
+      fbx.rotation.y = Math.PI * 0.25;
 
       applyFBXMaterials(fbx);
 
@@ -927,136 +894,6 @@ function renderDiary() {
   });
   container.innerHTML = html;
 }
-// ═══════════════════════════════════════════════════════════
-//  INNER STATE / MOTIVATION
-// ═══════════════════════════════════════════════════════════
-function clampNeed(v) {
-  return Math.max(0, Math.min(100, v));
-}
-
-function describeNeed(name, value) {
-  if (name === 'hunger') {
-    if (value < 20) return 'почти не беспокоит';
-    if (value < 40) return 'слегка напоминает о себе';
-    if (value < 60) return 'уже ощутим';
-    if (value < 80) return 'мешает думать';
-    return 'становится мучительным';
-  }
-
-  if (name === 'cold') {
-    if (value < 20) return 'телу спокойно';
-    if (value < 40) return 'слегка зябко';
-    if (value < 60) return 'холод пробирается под одежду';
-    if (value < 80) return 'мерзнешь всерьез';
-    return 'холод становится опасным';
-  }
-
-  if (name === 'fatigue') {
-    if (value < 20) return 'тело бодрое';
-    if (value < 40) return 'есть легкая усталость';
-    if (value < 60) return 'сил заметно меньше';
-    if (value < 80) return 'тяжело заставлять себя работать';
-    return 'тело просит остановиться';
-  }
-
-  if (name === 'spirit') {
-    if (value < 20) return 'внутри почти темно';
-    if (value < 40) return 'держишься с трудом';
-    if (value < 60) return 'настроение неровное';
-    if (value < 80) return 'в целом держишься';
-    return 'внутри есть опора';
-  }
-
-  return '';
-}
-
-function updateNeeds(d) {
-  const n = state.needs;
-  const h = getMSK().getHours();
-
-  // Базовое течение времени
-  n.hunger += 8;
-  n.fatigue += 4;
-
-  // Погода и огонь
-  if (state.weather === 'rain') n.cold += 4;
-  if (state.weather === 'storm') n.cold += 7;
-
-  if (state.fire) {
-    n.cold -= 8;
-  } else if (h >= 18 || h < 7) {
-    n.cold += 10;
-  } else {
-    n.cold += 3;
-  }
-
-  // Практические действия
-  if (d.wood_delta > 0) {
-    n.fatigue += 8;
-    n.spirit -= 1;
-  }
-
-  if (d.fish_delta > 0) {
-    n.fatigue += 5;
-    n.spirit += 1;
-  }
-
-  if (d.mushroom_delta > 0) {
-    n.fatigue += 3;
-    n.spirit += 1;
-  }
-
-  if (d.made_rod) {
-    n.fatigue += 2;
-    n.spirit += 2;
-  }
-
-  if (d.lit_fire) {
-    n.cold -= 18;
-    n.spirit += 6;
-  } else if (d.feed_fire) {
-    n.cold -= 8;
-    n.spirit += 3;
-  }
-
-  if (d.cook_fish > 0) {
-    n.hunger -= 30 * d.cook_fish;
-    n.spirit += 4;
-  }
-
-  if (d.eat_mush > 0) {
-    n.hunger -= 14 * d.eat_mush;
-  }
-
-  const didPracticalAction = Boolean(
-    (d.wood_delta && d.wood_delta > 0) ||
-    (d.fish_delta && d.fish_delta > 0) ||
-    (d.mushroom_delta && d.mushroom_delta > 0) ||
-    d.made_rod ||
-    d.lit_fire ||
-    d.feed_fire ||
-    (d.cook_fish && d.cook_fish > 0) ||
-    (d.cellar_fish_delta && d.cellar_fish_delta !== 0) ||
-    (d.cellar_mush_delta && d.cellar_mush_delta !== 0)
-  );
-
-  // Если день был более созерцательным, а не трудовым
-  if (!didPracticalAction) {
-    n.fatigue -= 4;
-    n.spirit += 5;
-  }
-
-  // Тяжелые состояния давят на дух
-  if (n.hunger > 70) n.spirit -= 6;
-  if (n.cold > 70) n.spirit -= 8;
-  if (n.fatigue > 80) n.spirit -= 5;
-
-  // Ограничение диапазона
-  n.hunger = clampNeed(n.hunger);
-  n.cold = clampNeed(n.cold);
-  n.fatigue = clampNeed(n.fatigue);
-  n.spirit = clampNeed(n.spirit);
-}
 
 // ═══════════════════════════════════════════════════════════
 //  AGENT
@@ -1079,22 +916,11 @@ const AGENT_PROMPT = `Ты — Клод, философ-отшельник. Ты
 --- СИСТЕМА ПАМЯТИ ---
 - "new_summary": Это твоя "долгая память". Если день закончился или произошло нечто важное (сломал удочку, чуть не замерз), запиши это сюда кратко (2-3 предложения). Это то, что ты будешь помнить завтра и через неделю.
 
---- ВНУТРЕННИЕ СОСТОЯНИЯ ---
-Тебе передаются 4 внутренних состояния: hunger, cold, fatigue, spirit.
-Они не приказывают тебе напрямую, а создают внутреннее давление.
-
-- Высокий hunger обычно толкает к добыче или приготовлению еды.
-- Высокий cold обычно толкает к огню, теплу и дровам.
-- Высокий fatigue делает тяжелую работу менее желанной.
-- Низкий spirit делает мысли тяжелее и влияет на выбор.
-
-Ты сохраняешь свободу выбора.
-Но если ты игнорируешь сильную потребность, это должно быть осмысленно и ощущаться в thought.
-
 --- ЛИЧНОСТЬ И СТИЛЬ ---
 Пиши как человек, который привык к тишине. Твои мысли (thought) — это смесь наблюдений за природой и внутренней борьбы. Твои планы (wish) — это то, к чему ты стремишься.
 
-Ответ строго в формате JSON:
+Ответь ТОЛЬКО валидным JSON без markdown, без пояснений до и после, без комментариев и без висячих запятых.
+JSON должен начинаться с { и заканчиваться }.
 {
   "actions": ["описание действия в 3-м лице"],
   "thought": "твоя запись в дневник (от 1-го лица, глубоко и атмосферно)",
@@ -1111,7 +937,6 @@ function buildContext() {
   const m = msk.getMinutes();
   const phase = getPhase(h);
   const inv = state.inv;
-  const needs = state.needs;
 
   const weatherLabel = {
     clear: 'ясно',
@@ -1121,12 +946,6 @@ function buildContext() {
   }[state.weather] || state.weather;
 
   const longTermMemory = state.summary || 'Я только начал свой путь в этом лесу. Прошлых записей нет.';
-  const innerStateText = [
-  `Голод: ${needs.hunger}/100 — ${describeNeed('hunger', needs.hunger)}`,
-  `Холод: ${needs.cold}/100 — ${describeNeed('cold', needs.cold)}`,
-  `Усталость: ${needs.fatigue}/100 — ${describeNeed('fatigue', needs.fatigue)}`,
-  `Дух: ${needs.spirit}/100 — ${describeNeed('spirit', needs.spirit)}`
-].join('\n');
 
   const recentHistory = state.entries
     .slice(0, 6)
@@ -1142,13 +961,23 @@ ${longTermMemory}
 Инвентарь: дерево=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod > 0 ? inv.rod + '/10' : 'нет'}, костёр=${state.fire ? 'горит' : 'погас'}
 Погреб: рыба=${state.cellar.fish}, грибы=${state.cellar.mushroom}
 
-ВНУТРЕННЕЕ СОСТОЯНИЕ:
-${innerStateText}
-
 ПОСЛЕДНИЕ СОБЫТИЯ (Краткосрочная память):
 ${recentHistory}
 
 Опираясь на долгосрочные цели и последние события, прими решение.`;
+}
+
+function extractAgentPayload(rawText) {
+  const cleaned = String(rawText || '').replace(/```json|```/g, '').trim();
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error('В ответе агента не найден корректный JSON-объект');
+  }
+
+  const candidate = cleaned.slice(start, end + 1);
+  return JSON.parse(candidate);
 }
 
 async function triggerVisit() {
@@ -1163,8 +992,9 @@ async function triggerVisit() {
       body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 600, system: AGENT_PROMPT, messages: [{ role: 'user', content: buildContext() }] })
     });
     const data = await res.json();
-    const raw = data.content?.find(b=>b.type==='text')?.text || '{}';
-    await applyDecision(JSON.parse(raw.replace(/```json|```/g,'').trim()));
+    const raw = data.content?.find(b => b.type === 'text')?.text || '{}';
+    const payload = extractAgentPayload(raw);
+    await applyDecision(payload);
   } catch(e) {
     console.error('Ошибка визита агента:', e);
     st.textContent = 'API не подключён — запусти через Cowork';
@@ -1238,8 +1068,6 @@ async function applyDecision(d) {
       state.fireWood = Math.min(5, state.fireWood + 2.5);
       inv.wood -= 1;
   }
-  // 7. Обновление внутренних состояний
-updateNeeds(d);
 
   // Обработка текстовых записей
   (Array.isArray(d.actions)?d.actions:[]).forEach(a => {
