@@ -342,8 +342,8 @@ function updateLogVisuals() {
     const log = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
     log.scale.setScalar(0.005); // Масштаб для log_seat.glb
     log.rotation.x = Math.PI / 2;   // положили
-    log.rotation.y = Math.PI / 2;
-    log.rotation.z = 0; 
+    log.rotation.z = Math.PI / 2;
+    log.rotation.y= 0; 
 
     // Раскладка пирамидкой
     let x = 0, y = 0, z = 0;
