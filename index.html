@@ -1127,6 +1127,10 @@ async function pollFiles() {
       state.inv.rod      = s.inv_rod      ?? state.inv.rod;
       state.cellar.fish     = s.cellar_fish     ?? state.cellar.fish;
       state.cellar.mushroom = s.cellar_mushroom ?? state.cellar.mushroom;
+      
+      // ВОТ ЭТО МЫ ПРОПУСТИЛИ: забираем память из базы в стейт
+      state.summary = s.summary ?? state.summary; 
+
       updateResources(); updateClock(); setFireState(state.fire);
     }
   } catch(e) { console.warn('state poll', e); }
