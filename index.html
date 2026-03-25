@@ -605,20 +605,40 @@ function scrubContradictions(d) {
   const notes = [];
   const moving = d.next_location !== state.location;
   const practicalAtOldPlace = canDoLocationAction(state.location, d);
+
   if (moving && practicalAtOldPlace) {
     notes.push(`Клод сменил место — поэтому практические действия я свёл к нулю, чтобы мир не телепортировался.`);
-    d.wood_delta = 0; d.fish_delta = 0; d.mushroom_delta = 0; d.herb_delta = 0;
-    d.made_rod = false; d.lit_fire = false; d.feed_fire = false;
-    d.cook_fish = 0; d.cellar_fish_delta = 0; d.cellar_mush_delta = 0;
+    d.wood_delta = 0;
+    d.fish_delta = 0;
+    d.mushroom_delta = 0;
+    d.herb_delta = 0;
+    d.made_rod = false;
+    d.lit_fire = false;
+    d.feed_fire = false;
+    d.cook_fish = 0;
+    d.cellar_fish_delta = 0;
+    d.cellar_mush_delta = 0;
   }
+
   if (!moving) {
     if (state.location !== 'river') d.fish_delta = 0;
-    if (state.location !== 'woods') { d.wood_delta = 0; d.mushroom_delta = 0; d.herb_delta = 0; }
+
+    if (state.location !== 'woods') {
+      d.wood_delta = 0;
+      d.mushroom_delta = 0;
+      d.herb_delta = 0;
+    }
+
     if (state.location !== 'hut') {
-      d.made_rod = false; d.lit_fire = false; d.feed_fire = false;
-      d.cook_fish = 0; d.cellar_fish_delta = 0; d.cellar_mush_delta = 0;
+      d.made_rod = false;
+      d.lit_fire = false;
+      d.feed_fire = false;
+      d.cook_fish = 0;
+      d.cellar_fish_delta = 0;
+      d.cellar_mush_delta = 0;
     }
   }
+
   return notes;
 }
 // ═══════════════════════════════════════════════════════════
