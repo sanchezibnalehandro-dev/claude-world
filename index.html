@@ -601,7 +601,7 @@ function canDoLocationAction(loc, d) {
   }
   return false;
 }
-function scrubContradictions(d) 
+function scrubContradictions(d) {
   const notes = [];
   const moving = d.next_location !== state.location;
   const practicalAtOldPlace = canDoLocationAction(state.location, d);
@@ -620,6 +620,7 @@ function scrubContradictions(d)
     }
   }
   return notes;
+}
 // ═══════════════════════════════════════════════════════════
 //  THREE.JS GLOBALS
 // ═══════════════════════════════════════════════════════════
