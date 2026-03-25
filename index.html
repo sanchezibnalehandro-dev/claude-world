@@ -1,280 +1,3 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Клод у костра</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Cinzel:wght@400;500&display=swap" rel="stylesheet">
-<style>
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-:root {
-  --ember:     #e8601a;
-  --gold:      #c8943a;
-  --gold-pale: #e8c878;
-  --text:      #d4c8a8;
-  --text-dim:  #7a6e58;
-  --text-faint:#3a3428;
-  --panel-bg:  rgba(8,6,4,0.96);
-  --border:    rgba(140,100,40,0.2);
-}
-html, body { width: 100%; height: 100%; overflow: hidden; background: #060412; }
-body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); display: flex; }
-#scene { flex: 1; position: relative; overflow: hidden; }
-#scene canvas { display: block; }
-
-#loading {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: #060412; z-index: 5; pointer-events: none;
-  transition: opacity 1s ease;
-}
-#loading.hidden { opacity: 0; }
-#loading-text {
-  font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 3px;
-  color: var(--gold); opacity: 0.6; margin-top: 16px;
-}
-.loading-dots::after { content: ''; animation: dots 1.5s steps(4, end) infinite; }
-@keyframes dots {
-  0%, 100% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; }
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-#diary-panel {
-  width: 340px; min-width: 340px;
-  background: var(--panel-bg); border-left: 1px solid var(--border);
-  display: flex; flex-direction: column; height: 100vh;
-  position: relative; z-index: 10;
-}
-#diary-header { padding: 20px 20px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-#diary-title {
-  font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px;
-  color: var(--gold); text-transform: uppercase; opacity: 0.7; margin-bottom: 6px;
-}
-#clock-line { display: flex; align-items: baseline; gap: 10px; }
-#clock-msk {
-  font-family: 'Cinzel', serif; font-size: 26px; color: var(--gold-pale);
-  font-weight: 500; text-shadow: 0 0 20px rgba(200,148,58,0.4); letter-spacing: 2px;
-}
-#clock-sub { font-size: 13px; color: var(--text-dim); font-style: italic; }
-#phase-line { margin-top: 6px; font-size: 13px; color: var(--text-dim); display: flex; gap: 12px; flex-wrap: wrap; }
-
-#resources {
-  padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-  display: flex; flex-wrap: wrap; gap: 6px 14px;
-}
-.res-chip { font-size: 15px; color: var(--text-dim); display: flex; align-items: center; gap: 4px; transition: color .3s; }
-.res-chip.has { color: var(--text); }
-.res-n { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); min-width: 16px; }
-
-#world-panel, #needs-panel {
-  padding: 12px 20px 14px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.block-title {
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: var(--text-faint);
-  text-transform: uppercase;
-  margin-bottom: 10px;
-}
-.world-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: var(--text-dim);
-}
-.world-line:last-child { margin-bottom: 0; }
-.world-label { min-width: 64px; color: var(--text-faint); }
-.world-value {
-  text-align: right;
-  color: var(--text);
-  line-height: 1.35;
-}
-#intent-value {
-  color: var(--gold-pale);
-  font-style: italic;
-}
-#intent-meta {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.35;
-}
-
-.need-row { margin-bottom: 10px; }
-.need-row:last-child { margin-bottom: 0; }
-.need-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  color: var(--text-dim);
-  margin-bottom: 4px;
-}
-.need-bar {
-  width: 100%;
-  height: 6px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(140,100,40,0.18);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.need-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: 999px;
-  transition: width .35s ease;
-}
-.need-fill-hunger  { background: linear-gradient(90deg, #7a3f14, #d26a1e); }
-.need-fill-cold    { background: linear-gradient(90deg, #305a7a, #6aa7d8); }
-.need-fill-fatigue { background: linear-gradient(90deg, #6b4c1b, #c89a4a); }
-.need-fill-spirit  { background: linear-gradient(90deg, #4d6b3a, #8ebc63); }
-
-#diary-scroll { flex: 1; overflow-y: auto; padding: 0; scrollbar-width: thin; scrollbar-color: #3a2a10 transparent; }
-#diary-scroll::-webkit-scrollbar { width: 3px; }
-#diary-scroll::-webkit-scrollbar-thumb { background: #3a2a10; }
-
-.diary-day-group { padding: 16px 20px; border-bottom: 1px solid rgba(60,40,10,0.4); }
-.diary-day-label {
-  font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 2px;
-  color: var(--text-faint); text-transform: uppercase; margin-bottom: 12px;
-}
-.entry { margin-bottom: 16px; animation: entryIn .5s ease forwards; opacity: 0; }
-@keyframes entryIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.entry-time { font-size: 11px; color: var(--text-faint); letter-spacing: 1px; margin-bottom: 4px; }
-.entry-thought { font-size: 18px; line-height: 1.6; color: var(--text); font-style: italic; }
-.entry-action { font-size: 16px; color: var(--text-dim); line-height: 1.5; padding-left: 10px; border-left: 2px solid rgba(140,100,40,0.25); }
-.entry-wish { font-size: 16px; color: #8a9870; line-height: 1.5; font-style: italic; }
-.entry-wish::before { content: '✦ '; color: #5a7040; font-size: 11px; }
-.entry-tag { display: inline-block; font-size: 10px; font-family: 'Cinzel', serif; letter-spacing: 1px; padding: 2px 7px; border-radius: 2px; margin-bottom: 5px; }
-.tag-thought { background: rgba(200,148,58,0.1); color: var(--gold); border: 1px solid rgba(200,148,58,0.2); }
-.tag-action  { background: rgba(100,140,80,0.1); color: #8aaa68; border: 1px solid rgba(100,140,80,0.2); }
-.tag-wish    { background: rgba(80,100,160,0.1); color: #8090c0; border: 1px solid rgba(80,100,160,0.2); }
-
-#agent-status { padding: 12px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
-#status-action { font-size: 15px; color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
-#status-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: var(--ember);
-  animation: dotPulse 2s ease-in-out infinite; flex-shrink: 0;
-}
-@keyframes dotPulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
-#status-text { font-style: italic; }
-#visit-btn {
-  display: block; width: 100%; margin-top: 10px; padding: 8px;
-  background: rgba(200,148,58,0.08); border: 1px solid rgba(200,148,58,0.25);
-  color: var(--gold); font-family: 'Cinzel', serif; font-size: 10px;
-  letter-spacing: 2px; cursor: pointer; transition: all .2s;
-}
-#visit-btn:hover { background: rgba(200,148,58,0.15); border-color: rgba(200,148,58,0.5); color: var(--gold-pale); }
-#visit-btn:disabled { opacity: .4; cursor: default; }
-</style>
-</head>
-<body>
-
-<div id="scene">
-  <div id="loading">
-    <svg width="40" height="40" viewBox="0 0 40 40">
-      <circle cx="20" cy="20" r="16" fill="none" stroke="#c8943a" stroke-width="1.5" stroke-opacity="0.3"/>
-      <circle cx="20" cy="20" r="16" fill="none" stroke="#e8601a" stroke-width="1.5"
-        stroke-dasharray="25 75" stroke-linecap="round"
-        style="animation: spin 1.2s linear infinite; transform-origin: center;">
-      </circle>
-    </svg>
-    <div id="loading-text">КЛОД ВХОДИТ В МИР<span class="loading-dots"></span></div>
-  </div>
-</div>
-
-<div id="diary-panel">
-  <div id="diary-header">
-    <div id="diary-title">Дневник отшельника</div>
-    <div id="clock-line">
-      <span id="clock-msk">--:--</span>
-      <span id="clock-sub">МСК</span>
-    </div>
-    <div id="phase-line">
-      <span id="phase-text">—</span>
-      <span id="day-text" style="color:var(--text-faint)">День 1</span>
-      <span id="weather-text">—</span>
-    </div>
-  </div>
-
-  <div id="resources">
-    <div class="res-chip" id="r-wood">🪵 <span class="res-n" id="rn-wood">0</span></div>
-    <div class="res-chip" id="r-fish">🐟 <span class="res-n" id="rn-fish">0</span></div>
-    <div class="res-chip" id="r-mush">🍄 <span class="res-n" id="rn-mush">0</span></div>
-    <div class="res-chip" id="r-herb">🌿 <span class="res-n" id="rn-herb">0</span></div>
-    <div class="res-chip" id="r-rod" title="Удочка">🎣 <span class="res-n" id="rn-rod">✗</span></div>
-    <div class="res-chip" id="r-fire" title="Костёр">🔥 <span class="res-n" id="rn-fire" style="font-size:10px">погас</span></div>
-  </div>
-
-  <div id="world-panel">
-    <div class="block-title">МИР И НАМЕРЕНИЕ</div>
-    <div class="world-line">
-      <span class="world-label">Место</span>
-      <span class="world-value" id="location-value">У очага</span>
-    </div>
-    <div class="world-line">
-      <span class="world-label">Линия</span>
-      <div class="world-value">
-        <div id="intent-value">держусь ближе к огню и собираю себя</div>
-        <div id="intent-meta">сегодня · hut</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="needs-panel">
-    <div class="block-title">СОСТОЯНИЕ</div>
-
-    <div class="need-row">
-      <div class="need-head">
-        <span>🍖 Голод</span>
-        <span id="need-hunger-value">20/100</span>
-      </div>
-      <div class="need-bar"><div class="need-fill need-fill-hunger" id="need-hunger-fill"></div></div>
-    </div>
-
-    <div class="need-row">
-      <div class="need-head">
-        <span>🥶 Холод</span>
-        <span id="need-cold-value">10/100</span>
-      </div>
-      <div class="need-bar"><div class="need-fill need-fill-cold" id="need-cold-fill"></div></div>
-    </div>
-
-    <div class="need-row">
-      <div class="need-head">
-        <span>😮‍💨 Усталость</span>
-        <span id="need-fatigue-value">15/100</span>
-      </div>
-      <div class="need-bar"><div class="need-fill need-fill-fatigue" id="need-fatigue-fill"></div></div>
-    </div>
-
-    <div class="need-row">
-      <div class="need-head">
-        <span>🕯️ Дух</span>
-        <span id="need-spirit-value">70/100</span>
-      </div>
-      <div class="need-bar"><div class="need-fill need-fill-spirit" id="need-spirit-fill"></div></div>
-    </div>
-  </div>
-
-  <div id="diary-scroll"><div id="diary-entries"></div></div>
-
-  <div id="agent-status">
-    <div id="status-action">
-      <div id="status-dot"></div>
-      <span id="status-text">ожидает визита...</span>
-    </div>
-    <button id="visit-btn" onclick="triggerVisit()">▶ ВИЗИТ АГЕНТА</button>
-  </div>
-</div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.6.10/umd/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
@@ -375,7 +98,7 @@ const state = {
   }
 };
 
-const ACTION_TYPES = new Set([
+const AGENT_ACTION_TYPES = new Set([
   'rest_fire',
   'relax',
   'sleep',
@@ -394,6 +117,7 @@ function describeLocation(loc) {
     woods: 'В лесу'
   }[loc] || 'У очага';
 }
+
 function describeFocus(focus) {
   return {
     hut: 'дом',
@@ -404,6 +128,7 @@ function describeFocus(focus) {
     supplies: 'запас'
   }[focus] || focus || 'мир';
 }
+
 function describeHorizon(horizon) {
   return {
     now: 'сейчас',
@@ -411,16 +136,20 @@ function describeHorizon(horizon) {
     until_evening: 'до вечера'
   }[horizon] || 'сегодня';
 }
+
 function clampNeed(v) {
   return Math.max(0, Math.min(100, Math.round(v)));
 }
+
 function safeText(v, fallback = '') {
   return typeof v === 'string' && v.trim() ? v.trim() : fallback;
 }
+
 function getMSK() {
   const now = new Date();
   return new Date(now.getTime() + (now.getTimezoneOffset() + 180) * 60000);
 }
+
 function getPhase(h) {
   if (h >= 5  && h < 7)  return { text: '🌅 Рассвет', amb: 0.3 };
   if (h >= 7  && h < 11) return { text: '☀️ Утро', amb: 0.85 };
@@ -429,12 +158,15 @@ function getPhase(h) {
   if (h >= 20 && h < 23) return { text: '🌙 Вечер', amb: 0.25 };
   return { text: '🌑 Ночь', amb: 0.12 };
 }
+
 function weatherLabel(code) {
   return { clear:'ясно', cloudy:'облачно', rain:'дождь', storm:'гроза' }[code] || code;
 }
+
 function weatherEmoji(code) {
   return { clear:'☀️', cloudy:'⛅', rain:'🌧️', storm:'⛈️' }[code] || '';
 }
+
 function describeNeed(name, value) {
   if (name === 'hunger') {
     if (value < 20) return 'почти не беспокоит';
@@ -466,6 +198,7 @@ function describeNeed(name, value) {
   }
   return '';
 }
+
 function defaultIntentForLocation(loc) {
   if (loc === 'river') {
     return {
@@ -493,18 +226,19 @@ function defaultIntentForLocation(loc) {
     age: 0
   };
 }
+
 function normalizeDecision(raw) {
   const d = raw && typeof raw === 'object' ? raw : {};
   const actionType = safeText(d.action_type, '').toLowerCase();
 
   return {
-    action_type: ACTION_TYPES.has(actionType) ? actionType : null,
+    action_type: AGENT_ACTION_TYPES.has(actionType) ? actionType : null,
     main_action: safeText(d.main_action, 'Клод задержался на месте и ничего не стал ломать силой.'),
     minor_action: safeText(d.minor_action, ''),
     thought: safeText(d.thought, 'Тишина не всегда даёт ответы, но она умеет возвращать ритм дыхания.'),
     wish: safeText(d.wish, ''),
     new_summary: safeText(d.new_summary, ''),
-    next_location: ['hut','river','woods'].includes(d.next_location) ? d.next_location : state.location,
+    next_location: ['hut', 'river', 'woods'].includes(d.next_location) ? d.next_location : state.location,
     new_intent: d.new_intent && typeof d.new_intent === 'object' ? {
       label: safeText(d.new_intent.label, state.intent.label),
       focus: safeText(d.new_intent.focus, state.intent.focus),
@@ -524,6 +258,7 @@ function normalizeDecision(raw) {
     cellar_mush_delta: Number(d.cellar_mush_delta || 0)
   };
 }
+
 function updateNeeds(d) {
   const n = state.needs;
   const h = getMSK().getHours();
@@ -567,15 +302,18 @@ function updateNeeds(d) {
   n.fatigue = clampNeed(n.fatigue);
   n.spirit = clampNeed(n.spirit);
 }
+
 function updateIntentAge(didChangeIntent) {
   state.intent.age = didChangeIntent ? 0 : Math.min((state.intent.age || 0) + 1, 99);
 }
+
 function updateWorldUI() {
   document.getElementById('location-value').textContent = describeLocation(state.location);
   document.getElementById('intent-value').textContent = state.intent.label || 'прислушиваюсь к миру';
   document.getElementById('intent-meta').textContent =
     `${describeHorizon(state.intent.horizon)} · ${describeFocus(state.intent.focus)} · ${state.intent.reason}`;
 }
+
 function updateNeedsUI() {
   const map = [
     ['hunger', 'need-hunger-fill', 'need-hunger-value'],
@@ -583,6 +321,7 @@ function updateNeedsUI() {
     ['fatigue', 'need-fatigue-fill', 'need-fatigue-value'],
     ['spirit', 'need-spirit-fill', 'need-spirit-value']
   ];
+
   map.forEach(([key, fillId, valueId]) => {
     const fill = document.getElementById(fillId);
     const value = document.getElementById(valueId);
@@ -591,6 +330,7 @@ function updateNeedsUI() {
     value.textContent = `${state.needs[key]}/100`;
   });
 }
+
 function canDoLocationAction(loc, d) {
   if (d.eat_mush > 0) return true;
   if (loc === 'river') return d.fish_delta > 0;
@@ -601,6 +341,7 @@ function canDoLocationAction(loc, d) {
   }
   return false;
 }
+
 function scrubContradictions(d) {
   const notes = [];
   const moving = d.next_location !== state.location;
@@ -641,6 +382,11 @@ function scrubContradictions(d) {
 
   return notes;
 }
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 // ═══════════════════════════════════════════════════════════
 //  THREE.JS GLOBALS
 // ═══════════════════════════════════════════════════════════
@@ -654,7 +400,9 @@ const animCache = {};
 const FRUSTUM = 11;
 
 const CHAR_SCALE = 0.011;
-const CHAR_X = -2, CHAR_Z = 1.8;
+const CHAR_X = -2;
+const CHAR_Z = 1.8;
+
 // ═══════════════════════════════════════════════════════════
 //  SCENE ASSETS
 // ═══════════════════════════════════════════════════════════
@@ -712,16 +460,13 @@ function plantInitialMushrooms() {
 function spawnRandomMushroom(x, z, group) {
   if (mushroomPrefabs.length === 0) return;
 
-  const randomMushroom =
-    mushroomPrefabs[Math.floor(Math.random() * mushroomPrefabs.length)];
-
+  const randomMushroom = mushroomPrefabs[Math.floor(Math.random() * mushroomPrefabs.length)];
   const clone = new THREE.Mesh(randomMushroom.geometry, randomMushroom.material);
   clone.castShadow = true;
   clone.receiveShadow = true;
   clone.position.set(x, 0, z);
   clone.scale.setScalar(0.25);
   clone.rotation.y = Math.random() * Math.PI * 2;
-
   group.add(clone);
 }
 
@@ -794,6 +539,10 @@ function updateLogVisuals() {
     logPileGroup.add(log);
   }
 }
+
+// ═══════════════════════════════════════════════════════════
+//  VISUALS / ANIMATION CONTROL
+// ═══════════════════════════════════════════════════════════
 let currentActionType = null;
 let actionNonce = 0;
 let actionTimeout = null;
@@ -808,7 +557,10 @@ const MODEL_PATHS = {
   fishing_idle: '/models/fishing_idle.fbx',
   fishing_cast: '/models/fishing_cast.fbx',
   chop_wood: '/models/chop_wood.fbx',
-  gather_mushrooms: '/models/gather_mushrooms.fbx'
+  gather_mushrooms: '/models/gather_mushrooms.fbx',
+  observe_river: '/models/observe_river.fbx',
+  stand_river: '/models/stand_river.fbx',
+  pause_woods: '/models/pause_woods.fbx'
 };
 
 const ACTION_SCENES = {
@@ -834,6 +586,16 @@ const ACTION_SCENES = {
     pos: [3.5, 0.15, 2.5],
     lookAt: [7.5, 0, 5]
   },
+  observe_river: {
+    clipKey: 'observe_river',
+    pos: [3.35, 0.05, 2.45],
+    lookAt: [7.5, 0, 5]
+  },
+  stand_river: {
+    clipKey: 'stand_river',
+    pos: [3.75, 0.05, 2.55],
+    lookAt: [7.5, 0, 5]
+  },
   chop_wood: {
     clipKey: 'chop_wood',
     pos: [-4.8, 0.0, 3.6],
@@ -843,6 +605,11 @@ const ACTION_SCENES = {
     clipKey: 'gather_mushrooms',
     pos: [-3.4, 0.0, 4.4],
     lookAt: [-4.0, 0.2, 5.0]
+  },
+  pause_woods: {
+    clipKey: 'pause_woods',
+    pos: [-3.9, 0.02, 4.2],
+    lookAt: [-4.8, 0.2, 5.2]
   }
 };
 
@@ -863,16 +630,17 @@ function actionStatusText(type) {
     relax: 'Клод отдыхает',
     sleep: 'Клод спит у палатки',
     fish: 'Клод рыбачит',
+    observe_river: 'Клод смотрит на реку',
+    stand_river: 'Клод стоит у воды',
     chop_wood: 'Клод рубит дрова',
-    gather_mushrooms: 'Клод собирает грибы'
+    gather_mushrooms: 'Клод собирает грибы',
+    pause_woods: 'Клод замер в лесу'
   }[type] || 'Клод в мире';
 }
 
-function chooseDefaultActionType() {
-  if (state.location === 'river') return 'fish';
-  if (state.location === 'woods') {
-    return Math.random() < 0.55 ? 'gather_mushrooms' : 'chop_wood';
-  }
+function chooseDefaultVisualForLocation(loc) {
+  if (loc === 'river') return pickRandom(['observe_river', 'stand_river']);
+  if (loc === 'woods') return 'pause_woods';
 
   const fatigue = state.needs?.fatigue || 0;
   if (fatigue >= 70) {
@@ -881,22 +649,41 @@ function chooseDefaultActionType() {
   return Math.random() < 0.75 ? 'rest_fire' : 'relax';
 }
 
-function chooseActionTypeFromDecision(d) {
-  if (ACTION_TYPES.has(d.action_type)) return d.action_type;
+function deriveIntentHints(d) {
+  const combined = `${d.action_type || ''} ${d.main_action || ''} ${d.minor_action || ''}`.toLowerCase();
 
-  if (d.next_location === 'river' || d.fish_delta > 0) return 'fish';
+  return {
+    wantsSleep:
+      d.action_type === 'sleep' ||
+      /уснул|спал|сон|задрем|дрем/.test(combined),
 
-  if (d.next_location === 'woods') {
-    if (d.wood_delta > 0) return 'chop_wood';
-    if (d.mushroom_delta > 0 || d.herb_delta > 0) return 'gather_mushrooms';
-    return Math.random() < 0.5 ? 'gather_mushrooms' : 'chop_wood';
+    wantsRelax:
+      d.action_type === 'relax' ||
+      /леж|валя|растянул|отдых|расслаб/.test(combined),
+
+    wantsRestFire:
+      d.action_type === 'rest_fire'
+  };
+}
+
+function determineResolvedVisualAction(facts) {
+  if (state.location === 'river') {
+    if (facts.didFishSuccessfully) return 'fish';
+    return pickRandom(['observe_river', 'stand_river']);
   }
 
-  const t = `${d.main_action} ${d.minor_action}`.toLowerCase();
-  if (t.includes('сон') || t.includes('спал') || t.includes('дрем')) return 'sleep';
-  if (t.includes('леж') || t.includes('валя') || t.includes('растянулся')) return 'relax';
+  if (state.location === 'woods') {
+    if (facts.didGatherWood) return 'chop_wood';
+    if (facts.didGatherFood) return 'gather_mushrooms';
+    return 'pause_woods';
+  }
 
-  return chooseDefaultActionType();
+  if (facts.wantsSleep) return 'sleep';
+  if (facts.didHomePractical) return 'rest_fire';
+  if (facts.wantsRelax) return Math.random() < 0.7 ? 'relax' : 'rest_fire';
+  if (facts.wantsRestFire) return 'rest_fire';
+
+  return chooseDefaultVisualForLocation('hut');
 }
 
 function applyCharacterPlacement(mesh, pos, lookAt) {
@@ -906,13 +693,13 @@ function applyCharacterPlacement(mesh, pos, lookAt) {
 }
 
 function applyFBXMaterials(fbx) {
-  fbx.traverse(child => {
+  fbx.traverse((child) => {
     if (child.isMesh) {
       child.castShadow = true;
       child.receiveShadow = true;
       child.frustumCulled = false;
       const mats = Array.isArray(child.material) ? child.material : [child.material];
-      mats.forEach(mat => {
+      mats.forEach((mat) => {
         if (mat) mat.skinning = true;
       });
     }
@@ -920,13 +707,14 @@ function applyFBXMaterials(fbx) {
 }
 
 function stopAllCachedActions() {
-  Object.values(animCache).forEach(entry => {
+  Object.values(animCache).forEach((entry) => {
     if (entry?.action) entry.action.stop();
   });
 }
 
 async function loadAnimationClip(key) {
   if (animCache[key]) return animCache[key];
+
   const path = MODEL_PATHS[key];
   if (!path) return null;
 
@@ -1075,7 +863,7 @@ async function runFishingScene(token) {
 }
 
 async function setActionByType(actionType) {
-  const finalType = ACTION_TYPES.has(actionType) ? actionType : chooseDefaultActionType();
+  const finalType = ACTION_SCENES[actionType] ? actionType : chooseDefaultVisualForLocation(state.location);
 
   currentActionType = finalType;
   state.visualActionType = finalType;
@@ -1107,13 +895,13 @@ function buildBoxCharacter() {
   characterGroup = new THREE.Group();
   characterGroup.position.set(-2, 0, 1.8);
 
-  const skinMat = new THREE.MeshLambertMaterial({ color: 0xc8a065, flatShading: true });
-  const clothMat = new THREE.MeshLambertMaterial({ color: 0x2c4821, flatShading: true });
-  const hatMat = new THREE.MeshLambertMaterial({ color: 0x181008, flatShading: true });
+  const skinMat = new THREE.MeshLambertMaterial({ color: 0xc8a065 });
+  const clothMat = new THREE.MeshLambertMaterial({ color: 0x2c4821 });
+  const hatMat = new THREE.MeshLambertMaterial({ color: 0x181008 });
 
   const rock = new THREE.Mesh(
     new THREE.SphereGeometry(0.32, 5, 4),
-    new THREE.MeshLambertMaterial({ color: 0x2a2018, flatShading: true })
+    new THREE.MeshLambertMaterial({ color: 0x2a2018 })
   );
   rock.scale.set(1.3, 0.55, 1.0);
   rock.position.set(0, 0.18, 0.1);
@@ -1155,12 +943,13 @@ async function loadCharacter() {
     return;
   }
 
-  await setActionByType(chooseDefaultActionType());
+  await setActionByType(chooseDefaultVisualForLocation(state.location));
 
   if (!characterGroup) {
     buildBoxCharacter();
   }
 }
+
 // ═══════════════════════════════════════════════════════════
 //  INIT THREE / SCENE BUILD
 // ═══════════════════════════════════════════════════════════
@@ -1240,6 +1029,7 @@ function buildScene() {
 
   const gGeo = new THREE.PlaneGeometry(60, 60, 12, 12);
   const gPos = gGeo.attributes.position;
+
   for (let i = 0; i < gPos.count; i++) {
     if (Math.abs(gPos.getX(i)) > 2 || Math.abs(gPos.getY(i)) > 2) {
       gPos.setZ(i, (Math.random() - 0.5) * 0.1);
@@ -1249,7 +1039,7 @@ function buildScene() {
 
   const ground = new THREE.Mesh(
     gGeo,
-    new THREE.MeshLambertMaterial({ color: 0x0d1a07, flatShading: true })
+    new THREE.MeshLambertMaterial({ color: 0x0d1a07 })
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
@@ -1274,7 +1064,7 @@ function buildPond() {
 
   const shore = new THREE.Mesh(
     new THREE.CylinderGeometry(5.2, 5.6, 0.40, 18, 1, false),
-    new THREE.MeshLambertMaterial({ color: 0x1a2c10, flatShading: true })
+    new THREE.MeshLambertMaterial({ color: 0x1a2c10 })
   );
   shore.position.y = 0.10;
   shore.scale.set(1.0, 1.0, 0.78);
@@ -1282,13 +1072,13 @@ function buildPond() {
 
   const water = new THREE.Mesh(
     new THREE.CylinderGeometry(4.3, 4.5, 0.44, 18, 1, false),
-    new THREE.MeshLambertMaterial({ color: 0x1a4060, flatShading: true })
+    new THREE.MeshLambertMaterial({ color: 0x1a4060 })
   );
   water.position.y = 0.10;
   water.scale.set(1.0, 1.0, 0.78);
   g.add(water);
 
-  const rockMat = new THREE.MeshLambertMaterial({ color: 0x3a3028, flatShading: true });
+  const rockMat = new THREE.MeshLambertMaterial({ color: 0x3a3028 });
   const rockAngles = [0, 0.42, 0.85, 1.3, 1.75, 2.2, 2.6, 3.0, 3.5, 3.9, 4.4, 4.9, 5.4, 5.8];
 
   rockAngles.forEach((a, i) => {
@@ -1313,7 +1103,7 @@ function buildTree(x, z, scale) {
 
   const trunk = new THREE.Mesh(
     new THREE.CylinderGeometry(0.1, 0.18, 1.4, 6),
-    new THREE.MeshLambertMaterial({ color: 0x2a1808, flatShading: true })
+    new THREE.MeshLambertMaterial({ color: 0x2a1808 })
   );
   trunk.position.y = 0.7;
   trunk.castShadow = true;
@@ -1327,7 +1117,7 @@ function buildTree(x, z, scale) {
   ].forEach(([r, h, y, col]) => {
     const c = new THREE.Mesh(
       new THREE.ConeGeometry(r, h, 7),
-      new THREE.MeshLambertMaterial({ color: col, flatShading: true })
+      new THREE.MeshLambertMaterial({ color: col })
     );
     c.position.y = y;
     c.castShadow = true;
@@ -1340,7 +1130,7 @@ function buildTree(x, z, scale) {
 function buildCampfire() {
   const g = new THREE.Group();
 
-  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x282018, flatShading: true });
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x282018 });
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
     const s = new THREE.Mesh(new THREE.SphereGeometry(0.2, 5, 4), stoneMat);
@@ -1350,10 +1140,10 @@ function buildCampfire() {
     g.add(s);
   }
 
-  const logMat = new THREE.MeshLambertMaterial({ color: 0x3a2010, flatShading: true });
+  const logMat = new THREE.MeshLambertMaterial({ color: 0x3a2010 });
   const logGeo = new THREE.CylinderGeometry(0.065, 0.085, 0.95, 6);
 
-  [Math.PI / 5, -Math.PI / 5].forEach(ry => {
+  [Math.PI / 5, -Math.PI / 5].forEach((ry) => {
     const l = new THREE.Mesh(logGeo, logMat);
     l.rotation.z = Math.PI / 2;
     l.rotation.y = ry;
@@ -1455,6 +1245,7 @@ function buildStars() {
 
   scene.add(starParticles);
 }
+
 // ═══════════════════════════════════════════════════════════
 //  ANIMATION LOOP
 // ═══════════════════════════════════════════════════════════
@@ -1465,47 +1256,84 @@ function animateLoop() {
   if (mixer) mixer.update(delta);
 
   if (fireLight && state.fire) {
-    fireLight.intensity = 3.0 + Math.sin(t*7.1)*0.5 + Math.sin(t*13.3)*0.3 + Math.sin(t*19.7)*0.15;
+    fireLight.intensity =
+      3.0 +
+      Math.sin(t * 7.1) * 0.5 +
+      Math.sin(t * 13.3) * 0.3 +
+      Math.sin(t * 19.7) * 0.15;
+
     if (Math.random() > 0.97) fireLight.color.setHex(0xff9040);
     else fireLight.color.setHex(0xff6820);
   }
+
   if (flameGroup) {
     flameGroup.visible = state.fire;
-    flameGroup.scale.x = 0.82 + Math.sin(t*8.3)*0.18;
-    flameGroup.scale.z = 0.82 + Math.sin(t*6.9)*0.18;
-    flameGroup.scale.y = 0.88 + Math.sin(t*10.5)*0.14;
-    flameGroup.rotation.y = Math.sin(t*3.1)*0.2;
-    flameGroup.position.y = 0.1 + Math.sin(t*12.7)*0.022;
+    flameGroup.scale.x = 0.82 + Math.sin(t * 8.3) * 0.18;
+    flameGroup.scale.z = 0.82 + Math.sin(t * 6.9) * 0.18;
+    flameGroup.scale.y = 0.88 + Math.sin(t * 10.5) * 0.14;
+    flameGroup.rotation.y = Math.sin(t * 3.1) * 0.2;
+    flameGroup.position.y = 0.1 + Math.sin(t * 12.7) * 0.022;
   }
+
   renderer.render(scene, camera);
 }
+
 function setFireState(active) {
   if (flameGroup) flameGroup.visible = active;
   if (fireLight) fireLight.intensity = active ? 3.0 : 0;
 }
+
 let _lastHour = -1;
+
 function updateClock() {
   const msk = getMSK();
-  const h = msk.getHours(), m = msk.getMinutes();
-  document.getElementById('clock-msk').textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  const h = msk.getHours();
+  const m = msk.getMinutes();
+
+  document.getElementById('clock-msk').textContent =
+    `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
   const phase = getPhase(h);
   document.getElementById('phase-text').textContent = phase.text;
   document.getElementById('day-text').textContent = `День ${state.day}`;
   document.getElementById('weather-text').textContent = weatherEmoji(state.weather);
-  if (h !== _lastHour) { _lastHour = h; updateSky(h, phase.amb); updateNightElements(phase.amb); }
+
+  if (h !== _lastHour) {
+    _lastHour = h;
+    updateSky(h, phase.amb);
+    updateNightElements(phase.amb);
+  }
+
   const fireText = state.fire ? `горит · ${state.fireWood.toFixed(1)}` : 'погас';
   document.getElementById('rn-fire').textContent = fireText;
   document.getElementById('rn-fire').style.color = state.fire ? '#e8601a' : '#3a3428';
   document.getElementById('r-fire').classList.toggle('has', state.fire);
 }
+
 function updateSky(h, amb) {
   if (!renderer) return;
-  const SKIES = [[5,7,0x6a2448],[7,11,0x2a5080],[11,17,0x2860a8],[17,20,0x7a2808],[20,23,0x1a0c30]];
+
+  const SKIES = [
+    [5, 7, 0x6a2448],
+    [7, 11, 0x2a5080],
+    [11, 17, 0x2860a8],
+    [17, 20, 0x7a2808],
+    [20, 23, 0x1a0c30]
+  ];
+
   let col = 0x090418;
-  for (const [a,b,c] of SKIES) if (h>=a && h<b) { col=c; break; }
+  for (const [a, b, c] of SKIES) {
+    if (h >= a && h < b) {
+      col = c;
+      break;
+    }
+  }
+
   renderer.setClearColor(col, 1);
   if (scene) scene.fog.color.setHex(col);
+
   if (ambientLight) ambientLight.intensity = 0.25 + amb * 1.1;
+
   if (moonLight) {
     moonLight.intensity = 0.1 + amb * 0.75;
     const dayCol = new THREE.Color(0xfff0c0);
@@ -1513,9 +1341,14 @@ function updateSky(h, amb) {
     moonLight.color.lerpColors(nightCol, dayCol, amb);
   }
 }
+
 function updateNightElements(amb) {
-  if (starParticles) starParticles.material.opacity = Math.max(0, 1 - amb * 2.5);
-  if (fireLight && state.fire) fireLight.intensity = 1.8 + (1-amb) * 2.0;
+  if (starParticles) {
+    starParticles.material.opacity = Math.max(0, 1 - amb * 2.5);
+  }
+  if (fireLight && state.fire) {
+    fireLight.intensity = 1.8 + (1 - amb) * 2.0;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1523,42 +1356,70 @@ function updateNightElements(amb) {
 // ═══════════════════════════════════════════════════════════
 function updateResources() {
   const inv = state.inv;
-  Object.entries({ wood: inv.wood, fish: inv.fish, mush: inv.mushroom, herb: inv.herb }).forEach(([k,v]) => {
+
+  Object.entries({
+    wood: inv.wood,
+    fish: inv.fish,
+    mush: inv.mushroom,
+    herb: inv.herb
+  }).forEach(([k, v]) => {
     const el = document.getElementById(`rn-${k}`);
     if (el) el.textContent = v;
     document.getElementById(`r-${k}`)?.classList.toggle('has', v > 0);
   });
+
   const rodEl = document.getElementById('rn-rod');
   if (rodEl) rodEl.textContent = inv.rod > 0 ? `${inv.rod}/10` : '✗';
   document.getElementById('r-rod')?.classList.toggle('has', inv.rod > 0);
+
   updateLogVisuals();
   updateNeedsUI();
   updateWorldUI();
 }
+
 function addEntry(entry) {
   const msk = getMSK();
-  entry.time = entry.time || `${String(msk.getHours()).padStart(2,'0')}:${String(msk.getMinutes()).padStart(2,'0')}`;
+  entry.time =
+    entry.time ||
+    `${String(msk.getHours()).padStart(2, '0')}:${String(msk.getMinutes()).padStart(2, '0')}`;
   entry.day = state.day;
   state.entries.unshift(entry);
   renderDiary();
 }
+
 function renderDiary() {
   const container = document.getElementById('diary-entries');
   if (!container) return;
+
   const byDay = {};
-  state.entries.forEach(e => { const dk = `День ${e.day}`; if (!byDay[dk]) byDay[dk] = []; byDay[dk].push(e); });
+  state.entries.forEach((e) => {
+    const dk = `День ${e.day}`;
+    if (!byDay[dk]) byDay[dk] = [];
+    byDay[dk].push(e);
+  });
+
   let html = '';
   Object.entries(byDay).forEach(([dl, entries]) => {
     html += `<div class="diary-day-group"><div class="diary-day-label">${dl}</div>`;
-    entries.forEach(e => {
-      let tag = '', cls = 'entry-action';
-      if (e.type === 'thought') { tag = `<div class="entry-tag tag-thought">мысль</div>`; cls = 'entry-thought'; }
-      else if (e.type === 'action') { tag = `<div class="entry-tag tag-action">действие</div>`; }
-      else if (e.type === 'wish') { tag = `<div class="entry-tag tag-wish">линия</div>`; cls = 'entry-wish'; }
+    entries.forEach((e) => {
+      let tag = '';
+      let cls = 'entry-action';
+
+      if (e.type === 'thought') {
+        tag = `<div class="entry-tag tag-thought">мысль</div>`;
+        cls = 'entry-thought';
+      } else if (e.type === 'action') {
+        tag = `<div class="entry-tag tag-action">действие</div>`;
+      } else if (e.type === 'wish') {
+        tag = `<div class="entry-tag tag-wish">линия</div>`;
+        cls = 'entry-wish';
+      }
+
       html += `<div class="entry"><div class="entry-time">${e.time}</div>${tag}<div class="${cls}">${e.text}</div></div>`;
     });
     html += `</div>`;
   });
+
   container.innerHTML = html;
 }
 
@@ -1712,7 +1573,7 @@ function buildContext() {
   ].join('\n');
 
   const recentHistory = state.entries.slice(0, 8)
-    .map(e => `— ${e.time} [${e.type}]: ${e.text}`)
+    .map((e) => `— ${e.time} [${e.type}]: ${e.text}`)
     .join('\n') || '— Пока ничего не произошло.';
 
   return `ТВОЯ ДОЛГАЯ ПАМЯТЬ:
@@ -1757,6 +1618,7 @@ function extractAgentPayload(rawText) {
 async function triggerVisit() {
   if (agentBusy) return;
   agentBusy = true;
+
   const btn = document.getElementById('visit-btn');
   const st = document.getElementById('status-text');
   btn.disabled = true;
@@ -1776,12 +1638,15 @@ async function triggerVisit() {
     });
 
     const data = await res.json();
+
     if (!res.ok) {
       console.error('Ошибка /api/agent:', data);
       throw new Error(data?.error?.message || data?.error || 'Сервер агента вернул ошибку');
     }
-    const raw = data.content?.find(b => b.type === 'text')?.text;
+
+    const raw = data.content?.find((b) => b.type === 'text')?.text;
     if (!raw) throw new Error('Сервер вернул ответ без content.text');
+
     const payload = extractAgentPayload(raw);
     await applyDecision(normalizeDecision(payload));
   } catch (e) {
@@ -1793,7 +1658,7 @@ async function triggerVisit() {
   agentBusy = false;
   btn.disabled = false;
   btn.textContent = '▶ ВИЗИТ АГЕНТА';
-  st.textContent = 'Клод у костра';
+  st.textContent = actionStatusText(currentActionType || state.visualActionType);
 }
 
 async function applyDecision(d) {
@@ -1801,6 +1666,15 @@ async function applyDecision(d) {
   const oldLocation = state.location;
   const notes = scrubContradictions(d);
   const newEntries = [];
+
+  const hints = deriveIntentHints(d);
+  const facts = {
+    ...hints,
+    didFishSuccessfully: false,
+    didGatherWood: false,
+    didGatherFood: false,
+    didHomePractical: false
+  };
 
   if (d.next_location !== oldLocation) {
     state.location = d.next_location;
@@ -1810,21 +1684,35 @@ async function applyDecision(d) {
     if (d.minor_action) newEntries.push({ type: 'action', text: d.minor_action });
   }
 
-  notes.forEach(text => newEntries.push({ type: 'action', text }));
+  notes.forEach((text) => newEntries.push({ type: 'action', text }));
 
-  if (d.wood_delta) inv.wood = Math.max(0, inv.wood + d.wood_delta);
-  if (d.mushroom_delta) inv.mushroom = Math.max(0, inv.mushroom + d.mushroom_delta);
-  if (d.herb_delta) inv.herb = Math.max(0, inv.herb + d.herb_delta);
+  if (d.wood_delta) {
+    inv.wood = Math.max(0, inv.wood + d.wood_delta);
+    if (d.wood_delta > 0) facts.didGatherWood = true;
+  }
+
+  if (d.mushroom_delta) {
+    inv.mushroom = Math.max(0, inv.mushroom + d.mushroom_delta);
+    if (d.mushroom_delta > 0) facts.didGatherFood = true;
+  }
+
+  if (d.herb_delta) {
+    inv.herb = Math.max(0, inv.herb + d.herb_delta);
+    if (d.herb_delta > 0) facts.didGatherFood = true;
+  }
 
   if (d.made_rod && inv.wood >= 1 && inv.rod <= 0 && state.location === 'hut') {
     inv.rod = 10;
     inv.wood -= 1;
+    facts.didHomePractical = true;
   }
 
   if (d.fish_delta > 0 && state.location === 'river') {
     if (inv.rod > 0) {
       inv.fish += d.fish_delta;
       inv.rod = Math.max(0, inv.rod - 1);
+      facts.didFishSuccessfully = true;
+
       if (inv.rod <= 0) {
         newEntries.push({ type: 'action', text: 'Удочка с треском сломалась. Клоду придётся собирать новую.' });
       }
@@ -1836,22 +1724,27 @@ async function applyDecision(d) {
   if (d.cellar_fish_delta > 0 && state.location === 'hut' && inv.fish >= d.cellar_fish_delta) {
     inv.fish -= d.cellar_fish_delta;
     state.cellar.fish += d.cellar_fish_delta;
+    facts.didHomePractical = true;
   } else if (d.cellar_fish_delta < 0 && state.location === 'hut' && state.cellar.fish >= Math.abs(d.cellar_fish_delta)) {
     inv.fish += Math.abs(d.cellar_fish_delta);
     state.cellar.fish -= Math.abs(d.cellar_fish_delta);
+    facts.didHomePractical = true;
   }
 
   if (d.cellar_mush_delta > 0 && state.location === 'hut' && inv.mushroom >= d.cellar_mush_delta) {
     inv.mushroom -= d.cellar_mush_delta;
     state.cellar.mushroom += d.cellar_mush_delta;
+    facts.didHomePractical = true;
   } else if (d.cellar_mush_delta < 0 && state.location === 'hut' && state.cellar.mushroom >= Math.abs(d.cellar_mush_delta)) {
     inv.mushroom += Math.abs(d.cellar_mush_delta);
     state.cellar.mushroom -= Math.abs(d.cellar_mush_delta);
+    facts.didHomePractical = true;
   }
 
   if (d.cook_fish > 0 && state.location === 'hut' && inv.fish >= d.cook_fish) {
     if (state.fire || d.lit_fire) {
       inv.fish -= d.cook_fish;
+      facts.didHomePractical = true;
     } else {
       newEntries.push({ type: 'action', text: 'Без огня рыба так и осталась обещанием ужина.' });
     }
@@ -1866,9 +1759,11 @@ async function applyDecision(d) {
     state.fireWood = 8;
     inv.wood -= 2;
     setFireState(true);
+    facts.didHomePractical = true;
   } else if (d.feed_fire && state.fire && inv.wood >= 1 && state.location === 'hut') {
     state.fireWood = Math.min(8, state.fireWood + 3);
     inv.wood -= 1;
+    facts.didHomePractical = true;
   }
 
   updateNeeds(d);
@@ -1877,6 +1772,7 @@ async function applyDecision(d) {
   if (d.wish) newEntries.push({ type: 'wish', text: d.wish });
 
   if (d.new_summary) state.summary = d.new_summary;
+
   let intentChanged = false;
   if (d.new_intent) {
     state.intent = { ...d.new_intent, age: 0 };
@@ -1887,13 +1783,13 @@ async function applyDecision(d) {
   }
   updateIntentAge(intentChanged);
 
-  newEntries.forEach(e => addEntry(e));
+  newEntries.forEach((e) => addEntry(e));
   updateResources();
   updateClock();
 
-  const finalActionType = chooseActionTypeFromDecision(d);
-  await setActionByType(finalActionType);
-  document.getElementById('status-text').textContent = actionStatusText(finalActionType);
+  const finalVisualAction = determineResolvedVisualAction(facts);
+  await setActionByType(finalVisualAction);
+  document.getElementById('status-text').textContent = actionStatusText(finalVisualAction);
 
   try {
     await supaUpdate('claude_world_state', 1, {
@@ -1912,9 +1808,16 @@ async function applyDecision(d) {
       fatigue: state.needs.fatigue,
       spirit: state.needs.spirit
     });
+
     for (const e of newEntries) {
-      await supaInsert('claude_world_diary', { type: e.type, text: e.text, time: e.time, day: e.day });
+      await supaInsert('claude_world_diary', {
+        type: e.type,
+        text: e.text,
+        time: e.time,
+        day: e.day
+      });
     }
+
     await supaUpdateOptionalMeta();
   } catch (err) {
     console.error('Ошибка при сохранении в базу:', err);
@@ -1925,11 +1828,14 @@ async function applyDecision(d) {
 //  POLL SUPABASE
 // ═══════════════════════════════════════════════════════════
 let _lastDiaryLen = 0;
+
 async function pollFiles() {
   try {
     const rows = await supaFetch('claude_world_state', '?id=eq.1&select=*');
+
     if (rows && rows[0]) {
       const s = rows[0];
+
       state.day = s.day ?? state.day;
       state.weather = s.weather ?? state.weather;
       state.fire = s.fire ?? state.fire;
@@ -1957,9 +1863,10 @@ async function pollFiles() {
       updateResources();
       updateClock();
       setFireState(state.fire);
-            if (!bootPoseSynced && !agentBusy) {
+
+      if (!bootPoseSynced && !agentBusy) {
         bootPoseSynced = true;
-        await setActionByType(chooseDefaultActionType());
+        await setActionByType(chooseDefaultVisualForLocation(state.location));
         document.getElementById('status-text').textContent = actionStatusText(currentActionType);
       }
     }
@@ -1969,15 +1876,17 @@ async function pollFiles() {
 
   try {
     const entries = await supaFetch('claude_world_diary', '?select=*&order=id.desc&limit=100');
+
     if (entries && entries.length !== _lastDiaryLen) {
       _lastDiaryLen = entries.length;
-      const existingTexts = new Set(state.entries.map(e => e.text + e.time));
-      const newOnes = entries.filter(e => !existingTexts.has(e.text + e.time));
+      const existingTexts = new Set(state.entries.map((e) => e.text + e.time));
+      const newOnes = entries.filter((e) => !existingTexts.has(e.text + e.time));
 
       if (newOnes.length > 0) {
         state.entries = [...newOnes, ...state.entries].slice(0, 100);
         renderDiary();
-        document.getElementById('status-text').textContent = actionStatusText(currentActionType || state.visualActionType);
+        document.getElementById('status-text').textContent =
+          actionStatusText(currentActionType || state.visualActionType);
       }
     }
   } catch (e) {
@@ -1993,11 +1902,16 @@ window.addEventListener('load', () => {
     document.getElementById('loading-text').textContent = 'Ошибка загрузки 3D движка';
     return;
   }
+
   initThree();
   updateClock();
   updateResources();
   updateNightElements(getPhase(getMSK().getHours()).amb);
-  addEntry({ type: 'thought', text: 'Мир проснулся не для подвигов. Просто в темноте снова нашлось место, где можно быть.' });
+
+  addEntry({
+    type: 'thought',
+    text: 'Мир проснулся не для подвигов. Просто в темноте снова нашлось место, где можно быть.'
+  });
 
   setInterval(updateClock, 10000);
   setInterval(pollFiles, 8000);
@@ -2006,25 +1920,42 @@ window.addEventListener('load', () => {
   setInterval(async () => {
     if (state.fire) {
       state.fireWood -= 0.0085;
+
       if (state.fireWood <= 0) {
         state.fire = false;
         state.fireWood = 0;
-        const e = { type: 'action', text: 'Очаг догорел. В хижине стало тише и холоднее, но не страшнее.' };
+
+        const e = {
+          type: 'action',
+          text: 'Очаг догорел. В хижине стало тише и холоднее, но не страшнее.'
+        };
+
         addEntry(e);
         setFireState(false);
+
         try {
-          await supaInsert('claude_world_diary', { type: e.type, text: e.text, time: e.time, day: e.day });
-        } catch (err) { console.warn(err); }
+          await supaInsert('claude_world_diary', {
+            type: e.type,
+            text: e.text,
+            time: e.time,
+            day: e.day
+          });
+        } catch (err) {
+          console.warn(err);
+        }
       }
+
       try {
-        await supaUpdate('claude_world_state', 1, { fire: state.fire, fire_wood: state.fireWood });
+        await supaUpdate('claude_world_state', 1, {
+          fire: state.fire,
+          fire_wood: state.fireWood
+        });
       } catch (err) {
         console.warn(err);
       }
+
       updateClock();
     }
   }, 60000);
 });
 </script>
-</body>
-</html>
