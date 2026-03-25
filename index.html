@@ -1,3 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Клод у костра</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Cinzel:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --ember:     #e8601a;
+  --gold:      #c8943a;
+  --gold-pale: #e8c878;
+  --text:      #d4c8a8;
+  --text-dim:  #7a6e58;
+  --text-faint:#3a3428;
+  --panel-bg:  rgba(8,6,4,0.96);
+  --border:    rgba(140,100,40,0.2);
+}
+html, body { width: 100%; height: 100%; overflow: hidden; background: #060412; }
+body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); display: flex; }
+#scene { flex: 1; position: relative; overflow: hidden; }
+#scene canvas { display: block; }
+
+#loading {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #060412; z-index: 5; pointer-events: none;
+  transition: opacity 1s ease;
+}
+#loading.hidden { opacity: 0; }
+#loading-text {
+  font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 3px;
+  color: var(--gold); opacity: 0.6; margin-top: 16px;
+}
+.loading-dots::after { content: ''; animation: dots 1.5s steps(4, end) infinite; }
+@keyframes dots {
+  0%, 100% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#diary-panel {
+  width: 340px; min-width: 340px;
+  background: var(--panel-bg); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; height: 100vh;
+  position: relative; z-index: 10;
+}
+#diary-header { padding: 20px 20px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+#diary-title {
+  font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px;
+  color: var(--gold); text-transform: uppercase; opacity: 0.7; margin-bottom: 6px;
+}
+#clock-line { display: flex; align-items: baseline; gap: 10px; }
+#clock-msk {
+  font-family: 'Cinzel', serif; font-size: 26px; color: var(--gold-pale);
+  font-weight: 500; text-shadow: 0 0 20px rgba(200,148,58,0.4); letter-spacing: 2px;
+}
+#clock-sub { font-size: 13px; color: var(--text-dim); font-style: italic; }
+#phase-line { margin-top: 6px; font-size: 13px; color: var(--text-dim); display: flex; gap: 12px; flex-wrap: wrap; }
+
+#resources {
+  padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+}
+.res-chip { font-size: 15px; color: var(--text-dim); display: flex; align-items: center; gap: 4px; transition: color .3s; }
+.res-chip.has { color: var(--text); }
+.res-n { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); min-width: 16px; }
+
+#world-panel, #needs-panel {
+  padding: 12px 20px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.block-title {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.world-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.world-line:last-child { margin-bottom: 0; }
+.world-label { min-width: 64px; color: var(--text-faint); }
+.world-value {
+  text-align: right;
+  color: var(--text);
+  line-height: 1.35;
+}
+#intent-value {
+  color: var(--gold-pale);
+  font-style: italic;
+}
+#intent-meta {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+
+.need-row { margin-bottom: 10px; }
+.need-row:last-child { margin-bottom: 0; }
+.need-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.need-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(140,100,40,0.18);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.need-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width .35s ease;
+}
+.need-fill-hunger  { background: linear-gradient(90deg, #7a3f14, #d26a1e); }
+.need-fill-cold    { background: linear-gradient(90deg, #305a7a, #6aa7d8); }
+.need-fill-fatigue { background: linear-gradient(90deg, #6b4c1b, #c89a4a); }
+.need-fill-spirit  { background: linear-gradient(90deg, #4d6b3a, #8ebc63); }
+
+#diary-scroll { flex: 1; overflow-y: auto; padding: 0; scrollbar-width: thin; scrollbar-color: #3a2a10 transparent; }
+#diary-scroll::-webkit-scrollbar { width: 3px; }
+#diary-scroll::-webkit-scrollbar-thumb { background: #3a2a10; }
+
+.diary-day-group { padding: 16px 20px; border-bottom: 1px solid rgba(60,40,10,0.4); }
+.diary-day-label {
+  font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 2px;
+  color: var(--text-faint); text-transform: uppercase; margin-bottom: 12px;
+}
+.entry { margin-bottom: 16px; animation: entryIn .5s ease forwards; opacity: 0; }
+@keyframes entryIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.entry-time { font-size: 11px; color: var(--text-faint); letter-spacing: 1px; margin-bottom: 4px; }
+.entry-thought { font-size: 18px; line-height: 1.6; color: var(--text); font-style: italic; }
+.entry-action { font-size: 16px; color: var(--text-dim); line-height: 1.5; padding-left: 10px; border-left: 2px solid rgba(140,100,40,0.25); }
+.entry-wish { font-size: 16px; color: #8a9870; line-height: 1.5; font-style: italic; }
+.entry-wish::before { content: '✦ '; color: #5a7040; font-size: 11px; }
+.entry-tag { display: inline-block; font-size: 10px; font-family: 'Cinzel', serif; letter-spacing: 1px; padding: 2px 7px; border-radius: 2px; margin-bottom: 5px; }
+.tag-thought { background: rgba(200,148,58,0.1); color: var(--gold); border: 1px solid rgba(200,148,58,0.2); }
+.tag-action  { background: rgba(100,140,80,0.1); color: #8aaa68; border: 1px solid rgba(100,140,80,0.2); }
+.tag-wish    { background: rgba(80,100,160,0.1); color: #8090c0; border: 1px solid rgba(80,100,160,0.2); }
+
+#agent-status { padding: 12px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
+#status-action { font-size: 15px; color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
+#status-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--ember);
+  animation: dotPulse 2s ease-in-out infinite; flex-shrink: 0;
+}
+@keyframes dotPulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
+#status-text { font-style: italic; }
+#visit-btn {
+  display: block; width: 100%; margin-top: 10px; padding: 8px;
+  background: rgba(200,148,58,0.08); border: 1px solid rgba(200,148,58,0.25);
+  color: var(--gold); font-family: 'Cinzel', serif; font-size: 10px;
+  letter-spacing: 2px; cursor: pointer; transition: all .2s;
+}
+#visit-btn:hover { background: rgba(200,148,58,0.15); border-color: rgba(200,148,58,0.5); color: var(--gold-pale); }
+#visit-btn:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+
+<div id="scene">
+  <div id="loading">
+    <svg width="40" height="40" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="16" fill="none" stroke="#c8943a" stroke-width="1.5" stroke-opacity="0.3"/>
+      <circle cx="20" cy="20" r="16" fill="none" stroke="#e8601a" stroke-width="1.5"
+        stroke-dasharray="25 75" stroke-linecap="round"
+        style="animation: spin 1.2s linear infinite; transform-origin: center;">
+      </circle>
+    </svg>
+    <div id="loading-text">КЛОД ВХОДИТ В МИР<span class="loading-dots"></span></div>
+  </div>
+</div>
+
+<div id="diary-panel">
+  <div id="diary-header">
+    <div id="diary-title">Дневник отшельника</div>
+    <div id="clock-line">
+      <span id="clock-msk">--:--</span>
+      <span id="clock-sub">МСК</span>
+    </div>
+    <div id="phase-line">
+      <span id="phase-text">—</span>
+      <span id="day-text" style="color:var(--text-faint)">День 1</span>
+      <span id="weather-text">—</span>
+    </div>
+  </div>
+
+  <div id="resources">
+    <div class="res-chip" id="r-wood">🪵 <span class="res-n" id="rn-wood">0</span></div>
+    <div class="res-chip" id="r-fish">🐟 <span class="res-n" id="rn-fish">0</span></div>
+    <div class="res-chip" id="r-mush">🍄 <span class="res-n" id="rn-mush">0</span></div>
+    <div class="res-chip" id="r-herb">🌿 <span class="res-n" id="rn-herb">0</span></div>
+    <div class="res-chip" id="r-rod" title="Удочка">🎣 <span class="res-n" id="rn-rod">✗</span></div>
+    <div class="res-chip" id="r-fire" title="Костёр">🔥 <span class="res-n" id="rn-fire" style="font-size:10px">погас</span></div>
+  </div>
+
+  <div id="world-panel">
+    <div class="block-title">МИР И НАМЕРЕНИЕ</div>
+    <div class="world-line">
+      <span class="world-label">Место</span>
+      <span class="world-value" id="location-value">У очага</span>
+    </div>
+    <div class="world-line">
+      <span class="world-label">Линия</span>
+      <div class="world-value">
+        <div id="intent-value">держусь ближе к огню и собираю себя</div>
+        <div id="intent-meta">сегодня · hut</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="needs-panel">
+    <div class="block-title">СОСТОЯНИЕ</div>
+
+    <div class="need-row">
+      <div class="need-head">
+        <span>🍖 Голод</span>
+        <span id="need-hunger-value">20/100</span>
+      </div>
+      <div class="need-bar"><div class="need-fill need-fill-hunger" id="need-hunger-fill"></div></div>
+    </div>
+
+    <div class="need-row">
+      <div class="need-head">
+        <span>🥶 Холод</span>
+        <span id="need-cold-value">10/100</span>
+      </div>
+      <div class="need-bar"><div class="need-fill need-fill-cold" id="need-cold-fill"></div></div>
+    </div>
+
+    <div class="need-row">
+      <div class="need-head">
+        <span>😮‍💨 Усталость</span>
+        <span id="need-fatigue-value">15/100</span>
+      </div>
+      <div class="need-bar"><div class="need-fill need-fill-fatigue" id="need-fatigue-fill"></div></div>
+    </div>
+
+    <div class="need-row">
+      <div class="need-head">
+        <span>🕯️ Дух</span>
+        <span id="need-spirit-value">70/100</span>
+      </div>
+      <div class="need-bar"><div class="need-fill need-fill-spirit" id="need-spirit-fill"></div></div>
+    </div>
+  </div>
+
+  <div id="diary-scroll"><div id="diary-entries"></div></div>
+
+  <div id="agent-status">
+    <div id="status-action">
+      <div id="status-dot"></div>
+      <span id="status-text">ожидает визита...</span>
+    </div>
+    <button id="visit-btn" onclick="triggerVisit()">▶ ВИЗИТ АГЕНТА</button>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.6.10/umd/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
@@ -1959,3 +2236,5 @@ window.addEventListener('load', () => {
   }, 60000);
 });
 </script>
+</body>
+</html>
