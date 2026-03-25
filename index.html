@@ -359,6 +359,7 @@ const state = {
   entries: [],
   summary: '',
   location: 'hut',
+  visualActionType: 'rest_fire',
   intent: {
     label: 'держусь ближе к огню и собираю себя',
     focus: 'hut',
@@ -373,6 +374,15 @@ const state = {
     spirit: 70
   }
 };
+
+const ACTION_TYPES = new Set([
+  'rest_fire',
+  'relax',
+  'sleep',
+  'fish',
+  'chop_wood',
+  'gather_mushrooms'
+]);
 
 // ═══════════════════════════════════════════════════════════
 //  WORLD HELPERS
@@ -485,7 +495,10 @@ function defaultIntentForLocation(loc) {
 }
 function normalizeDecision(raw) {
   const d = raw && typeof raw === 'object' ? raw : {};
+  const actionType = safeText(d.action_type, '').toLowerCase();
+
   return {
+    action_type: ACTION_TYPES.has(actionType) ? actionType : null,
     main_action: safeText(d.main_action, 'Клод задержался на месте и ничего не стал ломать силой.'),
     minor_action: safeText(d.minor_action, ''),
     thought: safeText(d.thought, 'Тишина не всегда даёт ответы, но она умеет возвращать ритм дыхания.'),
@@ -607,13 +620,6 @@ function scrubContradictions(d) {
     }
   }
   return notes;
-}
-function inferPoseFromWorld(actionText = '') {
-  const t = (actionText || '').toLowerCase();
-  if (state.location === 'river' || t.includes('рыб')) return 'fishing';
-  if (t.includes('спал') || t.includes('отдых') || t.includes('задрем')) return 'sleeping';
-  return 'sitting';
-}
 
 // ═══════════════════════════════════════════════════════════
 //  THREE.JS GLOBALS
@@ -621,362 +627,126 @@ function inferPoseFromWorld(actionText = '') {
 let renderer, scene, camera, clock3;
 let ambientLight, moonLight, fireLight;
 let starParticles, flameGroup;
-let characterGroup, mixer;
+let characterGroup = null;
+let mixer = null;
+
 const animCache = {};
 const FRUSTUM = 11;
 
 const CHAR_SCALE = 0.011;
-const ANIM_GROUND_Y = { sitting: -0.15, sleeping: -0.10, fishing: 0.15, idle: 0.00 };
 const CHAR_X = -2, CHAR_Z = 1.8;
 
-// ═══════════════════════════════════════════════════════════
-//  SCENE ASSETS
-// ═══════════════════════════════════════════════════════════
-const mushroomPrefabs = [];
-let logPrefab = null;
-let logPileGroup;
-let worldMushroomsGroup;
+let currentActionType = null;
+let actionNonce = 0;
+let actionTimeout = null;
+let fishingTimeout = null;
+let bootPoseSynced = false;
 
-function loadMushroomPack() {
-  const loader = new THREE.GLTFLoader();
-  loader.load('/models/mushrooms.glb', (gltf) => {
-    gltf.scene.traverse((child) => {
-      if (child.isMesh) {
-        child.geometry.rotateX(-Math.PI / 2);
-        child.geometry.computeBoundingBox();
-        const center = new THREE.Vector3();
-        child.geometry.boundingBox.getCenter(center);
-        child.geometry.translate(-center.x, -child.geometry.boundingBox.min.y, -center.z);
-        child.castShadow = true;
-        child.receiveShadow = true;
-        mushroomPrefabs.push(child);
-      }
-    });
-    plantInitialMushrooms();
-  }, null, () => console.warn('mushrooms.glb not loaded'));
-}
-function plantInitialMushrooms() {
-  worldMushroomsGroup = new THREE.Group();
-  scene.add(worldMushroomsGroup);
-  const mushroomSpots = [[-3, 4], [-4, 3.5], [-2.5, 5], [4, -3], [5, -2], [4.5, -4], [-6, -2], [-5.5, -3]];
-  mushroomSpots.forEach(spot => {
-    const rx = spot[0] + (Math.random() - 0.5) * 1.5;
-    const rz = spot[1] + (Math.random() - 0.5) * 1.5;
-    spawnRandomMushroom(rx, rz, worldMushroomsGroup);
-  });
-}
-function spawnRandomMushroom(x, z, group) {
-  if (mushroomPrefabs.length === 0) return;
-  const randomMushroom = mushroomPrefabs[Math.floor(Math.random() * mushroomPrefabs.length)];
-  const clone = new THREE.Mesh(randomMushroom.geometry, randomMushroom.material);
-  clone.castShadow = true;
-  clone.receiveShadow = true;
-  clone.position.set(x, 0, z);
-  clone.scale.setScalar(0.25);
-  clone.rotation.y = Math.random() * Math.PI * 2;
-  group.add(clone);
-}
-function loadLogModel() {
-  const loader = new THREE.GLTFLoader();
-  loader.load('/models/log_seat.glb', (gltf) => {
-    gltf.scene.traverse((child) => {
-      if (child.isMesh) {
-        child.geometry.rotateX(-Math.PI / 2);
-        child.geometry.computeBoundingBox();
-        const center = new THREE.Vector3();
-        child.geometry.boundingBox.getCenter(center);
-        child.geometry.translate(-center.x, -child.geometry.boundingBox.min.y, -center.z);
-        child.castShadow = true;
-        child.receiveShadow = true;
-        logPrefab = child;
-      }
-    });
-    logPileGroup = new THREE.Group();
-    logPileGroup.position.set(2.5, 0, -1.5);
-    scene.add(logPileGroup);
-    updateLogVisuals();
-  }, null, () => console.warn('log_seat.glb not loaded'));
-}
-function updateLogVisuals() {
-  if (!logPrefab || !logPileGroup) return;
-  while (logPileGroup.children.length > 0) logPileGroup.remove(logPileGroup.children[0]);
-  const count = state.inv.wood || 0;
-  const stepX = 0.13, stepY = 0.04;
-  for (let i = 0; i < count; i++) {
-    const log = new THREE.Mesh(logPrefab.geometry, logPrefab.material);
-    log.castShadow = true;
-    log.receiveShadow = true;
-    log.scale.setScalar(0.003);
-    log.rotation.x = Math.PI / 2;
-    log.rotation.z = Math.PI / 2;
-    log.rotation.y = Math.PI / 2;
-    let x = 0, y = 0;
-    if (i < 3) x = i * stepX;
-    else if (i < 5) { x = (i - 3) * stepX + stepX / 2; y = stepY; }
-    else { x = stepX; y = stepY * 2; }
-    log.position.set(x, y, 0);
-    logPileGroup.add(log);
+const MODEL_PATHS = {
+  sitting_idle: '/models/sitting_idle.fbx',
+  relax_lie: '/models/relax_lie.fbx',
+  sleeping_turn: '/models/sleeping_turn.fbx',
+  sleeping_idle: '/models/sleeping_idle.fbx',
+  fishing_idle: '/models/fishing_idle.fbx',
+  fishing_cast: '/models/fishing_cast.fbx',
+  chop_wood: '/models/chop_wood.fbx',
+  gather_mushrooms: '/models/gather_mushrooms.fbx'
+};
+
+const ACTION_SCENES = {
+  rest_fire: {
+    clipKey: 'sitting_idle',
+    pos: [-2.0, -0.15, 1.8],
+    lookAt: [0, 0.5, 0]
+  },
+  relax: {
+    clipKey: 'relax_lie',
+    pos: [-1.2, -0.08, 1.2],
+    lookAt: [0, 0.35, 0]
+  },
+  sleep: {
+    introKey: 'sleeping_turn',
+    loopKey: 'sleeping_idle',
+    pos: [-4.6, -0.08, -2.1],
+    lookAt: [-5.2, 0.2, -2.8]
+  },
+  fish: {
+    loopKey: 'fishing_idle',
+    altKey: 'fishing_cast',
+    pos: [3.5, 0.15, 2.5],
+    lookAt: [7.5, 0, 5]
+  },
+  chop_wood: {
+    clipKey: 'chop_wood',
+    pos: [-4.8, 0.0, 3.6],
+    lookAt: [-5.8, 0.5, 4.7]
+  },
+  gather_mushrooms: {
+    clipKey: 'gather_mushrooms',
+    pos: [-3.4, 0.0, 4.4],
+    lookAt: [-4.0, 0.2, 5.0]
+  }
+};
+
+function clearActionTimers() {
+  if (actionTimeout) {
+    clearTimeout(actionTimeout);
+    actionTimeout = null;
+  }
+  if (fishingTimeout) {
+    clearTimeout(fishingTimeout);
+    fishingTimeout = null;
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//  INIT THREE
-// ═══════════════════════════════════════════════════════════
-function initThree() {
-  const container = document.getElementById('scene');
-  const w = container.offsetWidth || (window.innerWidth - 340);
-  const h = container.offsetHeight || window.innerHeight;
-
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(w, h);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.setClearColor(0x060412, 1);
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  container.appendChild(renderer.domElement);
-
-  scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x060412, 0.04);
-
-  clock3 = new THREE.Clock();
-
-  const asp = w / h;
-  camera = new THREE.OrthographicCamera(
-    -FRUSTUM * asp / 2, FRUSTUM * asp / 2,
-     FRUSTUM / 2, -FRUSTUM / 2,
-    0.1, 300
-  );
-  camera.position.set(16, 13, 16);
-  camera.lookAt(0, 1, 0);
-
-  window.addEventListener('resize', onResize);
-
-  buildScene();
-  loadCharacter();
-  loadMushroomPack();
-  loadLogModel();
-  animateLoop();
+function actionStatusText(type) {
+  return {
+    rest_fire: 'Клод у костра',
+    relax: 'Клод отдыхает',
+    sleep: 'Клод спит у палатки',
+    fish: 'Клод рыбачит',
+    chop_wood: 'Клод рубит дрова',
+    gather_mushrooms: 'Клод собирает грибы'
+  }[type] || 'Клод в мире';
 }
-function onResize() {
-  const container = document.getElementById('scene');
-  const w = container.offsetWidth, h = container.offsetHeight;
-  const asp = w / h;
-  camera.left = -FRUSTUM * asp / 2;
-  camera.right = FRUSTUM * asp / 2;
-  camera.top = FRUSTUM / 2;
-  camera.bottom = -FRUSTUM / 2;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-}
-function buildScene() {
-  ambientLight = new THREE.AmbientLight(0xfff0e0, 0.7);
-  scene.add(ambientLight);
 
-  moonLight = new THREE.DirectionalLight(0xb0c8ff, 0.4);
-  moonLight.position.set(-10, 18, -6);
-  moonLight.castShadow = true;
-  moonLight.shadow.mapSize.width = 1024;
-  moonLight.shadow.mapSize.height = 1024;
-  scene.add(moonLight);
-
-  const fillLight = new THREE.DirectionalLight(0x4060a0, 0.15);
-  fillLight.position.set(10, 8, 10);
-  scene.add(fillLight);
-
-  fireLight = new THREE.PointLight(0xff6820, 3.5, 18);
-  fireLight.position.set(0, 0.9, 0);
-  fireLight.castShadow = true;
-  fireLight.shadow.mapSize.width = 512;
-  fireLight.shadow.mapSize.height = 512;
-  scene.add(fireLight);
-
-  const gGeo = new THREE.PlaneGeometry(60, 60, 12, 12);
-  const gPos = gGeo.attributes.position;
-  for (let i = 0; i < gPos.count; i++) {
-    if (Math.abs(gPos.getX(i)) > 2 || Math.abs(gPos.getY(i)) > 2) gPos.setZ(i, (Math.random() - 0.5) * 0.1);
-  }
-  gGeo.computeVertexNormals();
-  const ground = new THREE.Mesh(gGeo, new THREE.MeshLambertMaterial({ color: 0x0d1a07, flatShading: true }));
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-
-  buildPond();
-  [[-7,-4,1.1],[-9,0,1.3],[-5,-7,0.8],[-10,4,1.2],[-4,-8,0.9],[2,-7,1.0],[5,-5,1.15],[3,-9,0.85],[-6,7,1.1],[-3,8,0.75],[1,7,1.05],[-11,-3,1.4],[6,-8,0.9]]
-    .forEach(([x,z,s]) => buildTree(x, z, s));
-  buildCampfire();
-  buildTent(-5, -2.5);
-  buildStars();
-}
-function buildPond() {
-  const g = new THREE.Group();
-  g.position.set(7.5, 0, 5);
-  const shore = new THREE.Mesh(
-    new THREE.CylinderGeometry(5.2, 5.6, 0.40, 18, 1, false),
-    new THREE.MeshLambertMaterial({ color: 0x1a2c10, flatShading: true })
-  );
-  shore.position.y = 0.10;
-  shore.scale.set(1.0, 1.0, 0.78);
-  g.add(shore);
-
-  const water = new THREE.Mesh(
-    new THREE.CylinderGeometry(4.3, 4.5, 0.44, 18, 1, false),
-    new THREE.MeshLambertMaterial({ color: 0x1a4060, flatShading: true })
-  );
-  water.position.y = 0.10;
-  water.scale.set(1.0, 1.0, 0.78);
-  g.add(water);
-
-  const rockMat = new THREE.MeshLambertMaterial({ color: 0x3a3028, flatShading: true });
-  const rockAngles = [0, 0.42, 0.85, 1.3, 1.75, 2.2, 2.6, 3.0, 3.5, 3.9, 4.4, 4.9, 5.4, 5.8];
-  rockAngles.forEach((a, i) => {
-    const r = 4.9 + (i % 3) * 0.25;
-    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.20 + (i % 4) * 0.08, 0), rockMat);
-    rock.position.set(Math.cos(a) * r, 0.18, Math.sin(a) * r * 0.78);
-    rock.rotation.set(Math.sin(i) * 0.8, i * 0.7, Math.cos(i) * 0.6);
-    rock.castShadow = true;
-    g.add(rock);
-  });
-  scene.add(g);
-}
-function buildTree(x, z, scale) {
-  const g = new THREE.Group();
-  g.position.set(x, 0, z);
-  g.scale.setScalar(scale);
-
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.1, 0.18, 1.4, 6),
-    new THREE.MeshLambertMaterial({ color: 0x2a1808, flatShading: true })
-  );
-  trunk.position.y = 0.7;
-  trunk.castShadow = true;
-  g.add(trunk);
-
-  [[1.1,1.8,1.0,0x122008],[0.82,1.5,2.05,0x1a2e0a],[0.55,1.3,2.9,0x0e1a06],[0.32,0.95,3.6,0x162208]]
-    .forEach(([r, h, y, col]) => {
-      const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7),
-        new THREE.MeshLambertMaterial({ color: col, flatShading: true }));
-      c.position.y = y;
-      c.castShadow = true;
-      g.add(c);
-    });
-  scene.add(g);
-}
-function buildCampfire() {
-  const g = new THREE.Group();
-
-  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x282018, flatShading: true });
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    const s = new THREE.Mesh(new THREE.SphereGeometry(0.2, 5, 4), stoneMat);
-    s.position.set(Math.cos(a) * 0.52, 0.1, Math.sin(a) * 0.52);
-    s.scale.set(1.1, 0.55, 0.9);
-    s.castShadow = true;
-    g.add(s);
+function chooseDefaultActionType() {
+  if (state.location === 'river') return 'fish';
+  if (state.location === 'woods') {
+    return Math.random() < 0.55 ? 'gather_mushrooms' : 'chop_wood';
   }
 
-  const logMat = new THREE.MeshLambertMaterial({ color: 0x3a2010, flatShading: true });
-  const logGeo = new THREE.CylinderGeometry(0.065, 0.085, 0.95, 6);
-  [Math.PI/5, -Math.PI/5].forEach(ry => {
-    const l = new THREE.Mesh(logGeo, logMat);
-    l.rotation.z = Math.PI/2; l.rotation.y = ry; l.position.y = 0.07;
-    g.add(l);
-  });
-
-  const ember = new THREE.Mesh(new THREE.CircleGeometry(0.32, 8), new THREE.MeshBasicMaterial({ color: 0xd03808 }));
-  ember.rotation.x = -Math.PI/2; ember.position.y = 0.02;
-  g.add(ember);
-
-  flameGroup = new THREE.Group();
-  flameGroup.position.y = 0.1;
-  [[0xff9020,0.72,0,0.36,0],[0xff5a10,0.58,0.1,0.29,0.08],[0xff3808,0.48,-0.1,0.24,0.07],[0xffe040,0.32,0.04,0.56,-0.05],[0xff7830,0.42,-0.05,0.21,-0.1]]
-    .forEach(([col, h, px, py, pz]) => {
-      const m = new THREE.Mesh(
-        new THREE.ConeGeometry(0.13, h, 5),
-        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.92 })
-      );
-      m.position.set(px, py, pz);
-      flameGroup.add(m);
-    });
-  g.add(flameGroup);
-  scene.add(g);
-}
-function buildTent(x, z) {
-  const loader = new THREE.GLTFLoader();
-  const root = new THREE.Group();
-
-  root.position.set(x, 0, z);
-  scene.add(root);
-
-  loader.load('/models/stylized_tent.glb', (gltf) => {
-    const tent = gltf.scene;
-
-    tent.traverse((child) => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-
-    // Базовые настройки
-    tent.scale.setScalar(0.008);
-    tent.rotation.y = Math.PI / 3;
-
-    // Центрируем модель и ставим на землю
-    const box = new THREE.Box3().setFromObject(tent);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-
-    tent.position.set(
-      -center.x,
-      -box.min.y,
-      -center.z
-    );
-
-    root.add(tent);
-  }, null, (err) => {
-    console.warn('stylized_tent.glb not loaded', err);
-  });
-}
-function buildStars() {
-  const pos = [];
-  for (let i = 0; i < 350; i++) {
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.random() * Math.PI * 0.42 + 0.08;
-    const r = 60 + Math.random() * 15;
-    pos.push(r*Math.sin(phi)*Math.cos(theta), r*Math.cos(phi), r*Math.sin(phi)*Math.sin(theta));
+  const fatigue = state.needs?.fatigue || 0;
+  if (fatigue >= 70) {
+    return Math.random() < 0.7 ? 'relax' : 'rest_fire';
   }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  starParticles = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xe8f0ff, size: 0.22, transparent: true, opacity: 0.9 }));
-  scene.add(starParticles);
+  return Math.random() < 0.75 ? 'rest_fire' : 'relax';
 }
-function buildBoxCharacter() {
-  characterGroup = new THREE.Group();
-  characterGroup.position.set(-2, 0, 1.8);
 
-  const skinMat = new THREE.MeshLambertMaterial({ color: 0xc8a065, flatShading: true });
-  const clothMat = new THREE.MeshLambertMaterial({ color: 0x2c4821, flatShading: true });
-  const hatMat = new THREE.MeshLambertMaterial({ color: 0x181008, flatShading: true });
-  const bootMat = new THREE.MeshLambertMaterial({ color: 0x1a1008, flatShading: true });
+function chooseActionTypeFromDecision(d) {
+  if (ACTION_TYPES.has(d.action_type)) return d.action_type;
 
-  const rock = new THREE.Mesh(new THREE.SphereGeometry(0.32, 5, 4),
-    new THREE.MeshLambertMaterial({ color: 0x2a2018, flatShading: true }));
-  rock.scale.set(1.3, 0.55, 1.0); rock.position.set(0, 0.18, 0.1);
-  characterGroup.add(rock);
+  if (d.next_location === 'river' || d.fish_delta > 0) return 'fish';
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.58, 0.3), clothMat);
-  torso.position.y = 0.78; torso.castShadow = true; characterGroup.add(torso);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.33), skinMat);
-  head.position.y = 1.28; head.castShadow = true; characterGroup.add(head);
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.05, 8), hatMat);
-  brim.position.y = 1.48; characterGroup.add(brim);
-  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.23, 0.3, 8), hatMat);
-  crown.position.y = 1.65; characterGroup.add(crown);
-  characterGroup.lookAt(0, 0.5, 0);
-  scene.add(characterGroup);
+  if (d.next_location === 'woods') {
+    if (d.wood_delta > 0) return 'chop_wood';
+    if (d.mushroom_delta > 0 || d.herb_delta > 0) return 'gather_mushrooms';
+    return Math.random() < 0.5 ? 'gather_mushrooms' : 'chop_wood';
+  }
+
+  const t = `${d.main_action} ${d.minor_action}`.toLowerCase();
+  if (t.includes('сон') || t.includes('спал') || t.includes('дрем')) return 'sleep';
+  if (t.includes('леж') || t.includes('валя') || t.includes('растянулся')) return 'relax';
+
+  return chooseDefaultActionType();
 }
+
+function applyCharacterPlacement(mesh, pos, lookAt) {
+  if (!mesh || !pos) return;
+  mesh.position.set(...pos);
+  if (lookAt) mesh.lookAt(...lookAt);
+}
+
 function applyFBXMaterials(fbx) {
   fbx.traverse(child => {
     if (child.isMesh) {
@@ -984,66 +754,253 @@ function applyFBXMaterials(fbx) {
       child.receiveShadow = true;
       child.frustumCulled = false;
       const mats = Array.isArray(child.material) ? child.material : [child.material];
-      mats.forEach(mat => { if (mat) mat.skinning = true; });
+      mats.forEach(mat => {
+        if (mat) mat.skinning = true;
+      });
     }
   });
 }
-function loadCharacter() {
-  const loading = document.getElementById('loading');
-  if (loading) { loading.classList.add('hidden'); setTimeout(() => loading.style.display = 'none', 1200); }
 
-  if (typeof THREE.FBXLoader === 'undefined') { buildBoxCharacter(); return; }
-
-  const loader = new THREE.FBXLoader();
-  loader.load('/models/sitting-idle.fbx',
-    (fbx) => {
-      fbx.scale.setScalar(CHAR_SCALE);
-      fbx.position.set(CHAR_X, ANIM_GROUND_Y.sitting, CHAR_Z);
-      fbx.lookAt(0, 0.5, 0);
-      applyFBXMaterials(fbx);
-      if (characterGroup) { scene.remove(characterGroup); characterGroup = null; }
-      characterGroup = fbx;
-      scene.add(characterGroup);
-      mixer = new THREE.AnimationMixer(fbx);
-      if (fbx.animations && fbx.animations.length > 0) mixer.clipAction(fbx.animations[0]).play();
-      animCache.sitting = { mesh: fbx, mixer };
-    },
-    null,
-    () => buildBoxCharacter()
-  );
+function stopAllCachedActions() {
+  Object.values(animCache).forEach(entry => {
+    if (entry?.action) entry.action.stop();
+  });
 }
-async function switchAnimation(name, url, targetPos, targetLookAt) {
-  if (!characterGroup) return;
-  let nextChar = animCache[name]?.mesh;
-  if (!nextChar) {
-    try {
-      const loader = new THREE.FBXLoader();
-      const loadedFbx = await new Promise((res, rej) => loader.load(url, res, null, rej));
-      loadedFbx.scale.setScalar(CHAR_SCALE);
-      applyFBXMaterials(loadedFbx);
-      const newMixer = new THREE.AnimationMixer(loadedFbx);
-      if (loadedFbx.animations.length > 0) newMixer.clipAction(loadedFbx.animations[0]).play();
-      animCache[name] = { mesh: loadedFbx, mixer: newMixer };
-      nextChar = loadedFbx;
-    } catch (e) { return; }
+
+async function loadAnimationClip(key) {
+  if (animCache[key]) return animCache[key];
+  const path = MODEL_PATHS[key];
+  if (!path) return null;
+
+  return await new Promise((resolve) => {
+    const loader = new THREE.FBXLoader();
+
+    loader.load(
+      path,
+      (fbx) => {
+        fbx.scale.setScalar(CHAR_SCALE);
+        applyFBXMaterials(fbx);
+
+        const localMixer = new THREE.AnimationMixer(fbx);
+        const clip = fbx.animations && fbx.animations.length > 0 ? fbx.animations[0] : null;
+        const action = clip ? localMixer.clipAction(clip) : null;
+
+        animCache[key] = {
+          mesh: fbx,
+          mixer: localMixer,
+          clip,
+          action
+        };
+
+        resolve(animCache[key]);
+      },
+      null,
+      (err) => {
+        console.warn(`Animation not loaded: ${path}`, err);
+        resolve(null);
+      }
+    );
+  });
+}
+
+async function playAnimationClip(key, { pos, lookAt, once = false } = {}) {
+  if (!scene) return null;
+
+  const entry = await loadAnimationClip(key);
+  if (!entry) return null;
+
+  stopAllCachedActions();
+
+  if (characterGroup && characterGroup.parent) {
+    scene.remove(characterGroup);
   }
-  scene.remove(characterGroup);
-  characterGroup = nextChar;
-  mixer = animCache[name].mixer;
+
+  characterGroup = entry.mesh;
+  mixer = entry.mixer;
   scene.add(characterGroup);
-  if (targetPos) characterGroup.position.set(...targetPos);
-  if (targetLookAt) {
-    characterGroup.lookAt(...targetLookAt);
+
+  applyCharacterPlacement(characterGroup, pos || [CHAR_X, 0, CHAR_Z], lookAt);
+
+  if (entry.action) {
+    entry.action.reset();
+    entry.action.enabled = true;
+    entry.action.paused = false;
+    entry.action.clampWhenFinished = once;
+    entry.action.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, once ? 1 : Infinity);
+    entry.action.play();
   }
-  characterGroup.position.y = ANIM_GROUND_Y[name] !== undefined ? ANIM_GROUND_Y[name] : 0;
+
+  return entry;
 }
-function setPose(name) {
-  if (name === 'fishing') {
-    switchAnimation('fishing', '/models/Fishing Idle.fbx', [3.5, 0, 2.5], [7.5, 0, 5]);
-  } else if (name === 'sleeping') {
-    switchAnimation('sleeping', '/models/sleeping-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
-  } else {
-    switchAnimation('sitting', '/models/sitting-idle.fbx', [-2, 0, 1.8], [0, 0.5, 0]);
+
+async function runSleepScene(token) {
+  const cfg = ACTION_SCENES.sleep;
+
+  const intro = await playAnimationClip(cfg.introKey, {
+    pos: cfg.pos,
+    lookAt: cfg.lookAt,
+    once: true
+  });
+
+  if (token !== actionNonce || currentActionType !== 'sleep') return;
+
+  if (!intro || !intro.clip) {
+    await playAnimationClip(cfg.loopKey, {
+      pos: cfg.pos,
+      lookAt: cfg.lookAt
+    });
+    return;
+  }
+
+  const ms = Math.max(500, intro.clip.duration * 1000);
+
+  actionTimeout = setTimeout(async () => {
+    if (token !== actionNonce || currentActionType !== 'sleep') return;
+
+    await playAnimationClip(cfg.loopKey, {
+      pos: cfg.pos,
+      lookAt: cfg.lookAt
+    });
+  }, ms);
+}
+
+function scheduleFishingVariation(token) {
+  const cfg = ACTION_SCENES.fish;
+
+  fishingTimeout = setTimeout(async () => {
+    if (token !== actionNonce || currentActionType !== 'fish') return;
+
+    const cast = await playAnimationClip(cfg.altKey, {
+      pos: cfg.pos,
+      lookAt: cfg.lookAt,
+      once: true
+    });
+
+    if (token !== actionNonce || currentActionType !== 'fish') return;
+
+    if (!cast || !cast.clip) {
+      await playAnimationClip(cfg.loopKey, {
+        pos: cfg.pos,
+        lookAt: cfg.lookAt
+      });
+      scheduleFishingVariation(token);
+      return;
+    }
+
+    const ms = Math.max(500, cast.clip.duration * 1000);
+
+    actionTimeout = setTimeout(async () => {
+      if (token !== actionNonce || currentActionType !== 'fish') return;
+
+      await playAnimationClip(cfg.loopKey, {
+        pos: cfg.pos,
+        lookAt: cfg.lookAt
+      });
+
+      scheduleFishingVariation(token);
+    }, ms);
+  }, 7000 + Math.random() * 7000);
+}
+
+async function runFishingScene(token) {
+  const cfg = ACTION_SCENES.fish;
+
+  const idle = await playAnimationClip(cfg.loopKey, {
+    pos: cfg.pos,
+    lookAt: cfg.lookAt
+  });
+
+  if (token !== actionNonce || currentActionType !== 'fish') return;
+  if (!idle) return;
+
+  scheduleFishingVariation(token);
+}
+
+async function setActionByType(actionType) {
+  const finalType = ACTION_TYPES.has(actionType) ? actionType : chooseDefaultActionType();
+
+  currentActionType = finalType;
+  state.visualActionType = finalType;
+  actionNonce += 1;
+
+  const token = actionNonce;
+  clearActionTimers();
+
+  if (finalType === 'sleep') {
+    await runSleepScene(token);
+    return;
+  }
+
+  if (finalType === 'fish') {
+    await runFishingScene(token);
+    return;
+  }
+
+  const cfg = ACTION_SCENES[finalType];
+  if (!cfg) return;
+
+  await playAnimationClip(cfg.clipKey, {
+    pos: cfg.pos,
+    lookAt: cfg.lookAt
+  });
+}
+
+function buildBoxCharacter() {
+  characterGroup = new THREE.Group();
+  characterGroup.position.set(-2, 0, 1.8);
+
+  const skinMat = new THREE.MeshLambertMaterial({ color: 0xc8a065, flatShading: true });
+  const clothMat = new THREE.MeshLambertMaterial({ color: 0x2c4821, flatShading: true });
+  const hatMat = new THREE.MeshLambertMaterial({ color: 0x181008, flatShading: true });
+
+  const rock = new THREE.Mesh(
+    new THREE.SphereGeometry(0.32, 5, 4),
+    new THREE.MeshLambertMaterial({ color: 0x2a2018, flatShading: true })
+  );
+  rock.scale.set(1.3, 0.55, 1.0);
+  rock.position.set(0, 0.18, 0.1);
+  characterGroup.add(rock);
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.58, 0.3), clothMat);
+  torso.position.y = 0.78;
+  torso.castShadow = true;
+  characterGroup.add(torso);
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.33), skinMat);
+  head.position.y = 1.28;
+  head.castShadow = true;
+  characterGroup.add(head);
+
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.05, 8), hatMat);
+  brim.position.y = 1.48;
+  characterGroup.add(brim);
+
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.23, 0.3, 8), hatMat);
+  crown.position.y = 1.65;
+  characterGroup.add(crown);
+
+  characterGroup.lookAt(0, 0.5, 0);
+  scene.add(characterGroup);
+}
+
+async function loadCharacter() {
+  const loading = document.getElementById('loading');
+  if (loading) {
+    loading.classList.add('hidden');
+    setTimeout(() => {
+      loading.style.display = 'none';
+    }, 1200);
+  }
+
+  if (typeof THREE.FBXLoader === 'undefined') {
+    buildBoxCharacter();
+    return;
+  }
+
+  await setActionByType(chooseDefaultActionType());
+
+  if (!characterGroup) {
+    buildBoxCharacter();
   }
 }
 
@@ -1182,6 +1139,28 @@ woods — лес, дрова, грибы, травы, прогулка
 Если ты меняешь локацию, это и есть главное действие визита.
 Не телепортируйся внутри одного хода.
 
+--- ВИЗУАЛЬНАЯ ЛОГИКА ---
+Клод всегда остается в кадре.
+Он не ходит и не делает переходы пешком.
+Если меняется место действия, он сразу оказывается в новой точке сцены.
+Поэтому ты обязан выбирать action_type не по дороге, а по самой сцене действия.
+
+Допустимые action_type:
+- rest_fire — сидит у костра
+- relax — лежит и отдыхает
+- sleep — спит у палатки
+- fish — рыбачит у воды
+- chop_wood — рубит дрова у деревьев
+- gather_mushrooms — собирает грибы в грибной зоне
+
+Правила выбора:
+- rest_fire / relax / sleep — только для hut
+- fish — только для river
+- chop_wood / gather_mushrooms — только для woods
+
+Не используй action_type, которого нет в списке.
+Не описывай ходьбу как отдельную сцену.
+
 --- РИТМ ВИЗИТА ---
 Один визит = одно главное действие + одно малое бытовое действие.
 
@@ -1192,6 +1171,7 @@ woods — лес, дрова, грибы, травы, прогулка
 - собрать грибы/травы
 - остаться у очага и привести лагерь в порядок
 - отдохнуть / посидеть / поразмышлять
+- уснуть
 
 Малое бытовое действие:
 - подкинуть дров в огонь
@@ -1239,6 +1219,7 @@ wish — мягкая линия того, куда тебя тянет даль
 JSON начинается с { и заканчивается }.
 
 {
+  "action_type": "rest_fire|relax|sleep|fish|chop_wood|gather_mushrooms",
   "main_action": "одно главное действие",
   "minor_action": "одно малое бытовое действие или null",
   "thought": "лаконичная, емкая, красивая мысль-заметка от первого лица",
@@ -1458,9 +1439,10 @@ async function applyDecision(d) {
   newEntries.forEach(e => addEntry(e));
   updateResources();
   updateClock();
-  document.getElementById('status-text').textContent = 'Клод у костра';
 
-  setPose(inferPoseFromWorld(d.main_action));
+  const finalActionType = chooseActionTypeFromDecision(d);
+  await setActionByType(finalActionType);
+  document.getElementById('status-text').textContent = actionStatusText(finalActionType);
 
   try {
     await supaUpdate('claude_world_state', 1, {
@@ -1524,6 +1506,11 @@ async function pollFiles() {
       updateResources();
       updateClock();
       setFireState(state.fire);
+            if (!bootPoseSynced && !agentBusy) {
+        bootPoseSynced = true;
+        await setActionByType(chooseDefaultActionType());
+        document.getElementById('status-text').textContent = actionStatusText(currentActionType);
+      }
     }
   } catch (e) {
     console.warn('state poll', e);
@@ -1535,16 +1522,11 @@ async function pollFiles() {
       _lastDiaryLen = entries.length;
       const existingTexts = new Set(state.entries.map(e => e.text + e.time));
       const newOnes = entries.filter(e => !existingTexts.has(e.text + e.time));
+
       if (newOnes.length > 0) {
         state.entries = [...newOnes, ...state.entries].slice(0, 100);
         renderDiary();
-        document.getElementById('status-text').textContent = 'Клод только что был здесь';
-        const pose = inferPoseFromWorld(newOnes[0]?.text || '');
-        setPose(pose);
-        setTimeout(() => {
-          setPose('sitting');
-          document.getElementById('status-text').textContent = 'Клод у костра';
-        }, 30000);
+        document.getElementById('status-text').textContent = actionStatusText(currentActionType || state.visualActionType);
       }
     }
   } catch (e) {
