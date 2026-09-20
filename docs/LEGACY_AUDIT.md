@@ -129,7 +129,7 @@ The repository exposes a Supabase publishable key, which is normal for client us
 
 However, RLS policies, grants and table exposure could not be verified from the current connector permissions.
 
-**Status:** UNKNOWN, must be checked before moving writes server-side.
+**Status:** UNKNOWN. Browser writes have been removed in code; RLS still must be verified so the public publishable key cannot mutate these tables directly.
 
 ## Refactor rule
 
@@ -145,7 +145,7 @@ Every cleanup commit should preserve current observable behaviour unless explici
 2. Record architecture and known defects. ✅
 3. Create shared domain model and decision schema. ✅
 4. Extract pure simulation rules from UI and cron. ✅
-5. Make server the only state mutation path.
+5. Make server the only state mutation path. ✅ (code complete; deployment secret/RLS verification pending)
 6. Split frontend rendering/UI into modules.
 7. Repair or remove broken asset references.
 8. Add provider abstraction.
