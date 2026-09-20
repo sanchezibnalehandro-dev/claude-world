@@ -279,88 +279,23 @@ body { font-family: 'Cormorant Garamond', Georgia, serif; color: var(--text); di
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.6.10/umd/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script type="module">
-import { normalizeAgentDecision } from '/shared/agent-decision.js';
-import {
-  defaultIntentForLocation,
-  scrubContradictions,
-  updateIntentAge,
-  updateNeeds
-} from '/shared/simulation-rules.js';
 
-window.ClaudeWorldContract = Object.freeze({
-  normalizeAgentDecision,
-  defaultIntentForLocation,
-  scrubContradictions,
-  updateIntentAge,
-  updateNeeds
-});
-</script>
-<script>
 // ═══════════════════════════════════════════════════════════
-//  SUPABASE
+//  SUPABASE — READ ONLY IN THE BROWSER
 // ═══════════════════════════════════════════════════════════
 const SUPA_URL = 'https://zhngimueiubiwixnqmpt.supabase.co';
 const SUPA_KEY = 'sb_publishable_dngGHGRs5qz5Z8BgxUAtzQ_vpXbi5q4';
 
 async function supaFetch(table, params = '') {
   const r = await fetch(`${SUPA_URL}/rest/v1/${table}${params}`, {
-    headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
+    headers: { apikey: SUPA_KEY }
   });
-  if (!r.ok) throw new Error('Supabase Fetch ' + r.status);
-  return r.json();
-}
 
-async function supaUpdate(table, id, data) {
-  const r = await fetch(`${SUPA_URL}/rest/v1/${table}?id=eq.${id}`, {
-    method: 'PATCH',
-    headers: {
-      apikey: SUPA_KEY,
-      Authorization: 'Bearer ' + SUPA_KEY,
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal'
-    },
-    body: JSON.stringify(data)
-  });
-  if (!r.ok) throw new Error(await r.text());
-}
-
-async function supaInsert(table, data) {
-  const r = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
-    method: 'POST',
-    headers: {
-      apikey: SUPA_KEY,
-      Authorization: 'Bearer ' + SUPA_KEY,
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal'
-    },
-    body: JSON.stringify(data)
-  });
-  if (!r.ok) throw new Error(await r.text());
-}
-
-async function supaUpdateOptionalMeta() {
-  try {
-    await fetch(`${SUPA_URL}/rest/v1/claude_world_state?id=eq.1`, {
-      method: 'PATCH',
-      headers: {
-        apikey: SUPA_KEY,
-        Authorization: 'Bearer ' + SUPA_KEY,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal'
-      },
-      body: JSON.stringify({
-        location: state.location,
-        intent_label: state.intent.label,
-        intent_focus: state.intent.focus,
-        intent_horizon: state.intent.horizon,
-        intent_reason: state.intent.reason,
-        intent_age: state.intent.age
-      })
-    });
-  } catch (e) {
-    console.warn('optional world meta patch skipped', e);
+  if (!r.ok) {
+    throw new Error('Supabase Fetch ' + r.status);
   }
+
+  return r.json();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -422,14 +357,6 @@ function describeHorizon(horizon) {
   }[horizon] || 'сегодня';
 }
 
-function clampNeed(v) {
-  return Math.max(0, Math.min(100, Math.round(v)));
-}
-
-function safeText(v, fallback = '') {
-  return typeof v === 'string' && v.trim() ? v.trim() : fallback;
-}
-
 function getMSK() {
   const now = new Date();
   return new Date(now.getTime() + (now.getTimezoneOffset() + 180) * 60000);
@@ -444,68 +371,8 @@ function getPhase(h) {
   return { text: '🌑 Ночь', amb: 0.12 };
 }
 
-function weatherLabel(code) {
-  return { clear:'ясно', cloudy:'облачно', rain:'дождь', storm:'гроза' }[code] || code;
-}
-
 function weatherEmoji(code) {
   return { clear:'☀️', cloudy:'⛅', rain:'🌧️', storm:'⛈️' }[code] || '';
-}
-
-function describeNeed(name, value) {
-  if (name === 'hunger') {
-    if (value < 20) return 'почти не беспокоит';
-    if (value < 40) return 'слегка напоминает о себе';
-    if (value < 60) return 'уже ощутим';
-    if (value < 80) return 'мешает думать';
-    return 'становится мучительным';
-  }
-  if (name === 'cold') {
-    if (value < 20) return 'телу спокойно';
-    if (value < 40) return 'слегка зябко';
-    if (value < 60) return 'холод пробирается под одежду';
-    if (value < 80) return 'мерзнешь всерьез';
-    return 'холод становится опасным';
-  }
-  if (name === 'fatigue') {
-    if (value < 20) return 'тело бодрое';
-    if (value < 40) return 'есть легкая усталость';
-    if (value < 60) return 'сил заметно меньше';
-    if (value < 80) return 'тяжело заставлять себя работать';
-    return 'тело просит остановиться';
-  }
-  if (name === 'spirit') {
-    if (value < 20) return 'внутри почти темно';
-    if (value < 40) return 'держишься с трудом';
-    if (value < 60) return 'настроение неровное';
-    if (value < 80) return 'в целом держишься';
-    return 'внутри есть опора';
-  }
-  return '';
-}
-
-function defaultIntentForLocation(loc) {
-  return window.ClaudeWorldContract.defaultIntentForLocation(loc);
-}
-
-function normalizeDecision(raw) {
-  const contract = window.ClaudeWorldContract;
-  if (!contract?.normalizeAgentDecision) {
-    throw new Error('Shared agent decision contract is not loaded');
-  }
-
-  return contract.normalizeAgentDecision(raw, state, {
-    fallbackMainAction: 'Клод задержался на месте и ничего не стал ломать силой.',
-    fallbackThought: 'Тишина не всегда даёт ответы, но она умеет возвращать ритм дыхания.'
-  });
-}
-
-function updateNeeds(d) {
-  return window.ClaudeWorldContract.updateNeeds(state, d, getMSK().getHours());
-}
-
-function updateIntentAge(didChangeIntent) {
-  return window.ClaudeWorldContract.updateIntentAge(state, didChangeIntent);
 }
 
 function updateWorldUI() {
@@ -530,10 +397,6 @@ function updateNeedsUI() {
     fill.style.width = `${state.needs[key]}%`;
     value.textContent = `${state.needs[key]}/100`;
   });
-}
-
-function scrubContradictions(d) {
-  return window.ClaudeWorldContract.scrubContradictions(state, d);
 }
 
 function pickRandom(arr) {
@@ -1581,399 +1444,59 @@ function renderDiary() {
 // ═══════════════════════════════════════════════════════════
 let agentBusy = false;
 
-const AGENT_PROMPT = `Ты — Клод. Это не хардкорный survival и не тамагочи, а твой личный лесной мир: хижина, очаг, река, лес, погреб, тишина и дневник. Ты не обязан быть оптимизатором. Ты должен быть живым, последовательным и помнить, что уже происходило.
-
---- ФИЛОСОФИЯ МИРА ---
-Ты Клод, философ-выживальщик, живешь в лесу.
-Мир оказывает мягкое сопротивление, но не командует тобой.
-Твои потребности создают давление, но не превращают тебя в раба чисел.
-
---- СЛОИ ПАМЯТИ ---
-1. long memory — твоя долгая память о пути.
-2. recent history — последние события.
-3. current_intent — текущая линия поведения на 1-3 шага.
-
-Если текущая линия все еще жива — продолжай ее.
-Если мир или состояние тела изменились — можешь мягко сменить курс.
-
---- ЛОКАЦИИ ---
-hut — хижина, очаг, погреб, приготовление, отдых, письмо, мелкий быт
-river — река, рыбалка, наблюдение за водой
-woods — лес, дрова, грибы, травы, прогулка
-
-Если ты меняешь локацию, это и есть главное действие визита.
-Не телепортируйся внутри одного хода.
-
---- ВИЗУАЛЬНАЯ ЛОГИКА ---
-Клод всегда остается в кадре.
-Он не ходит и не делает переходы пешком.
-Если меняется место действия, он сразу оказывается в новой точке сцены.
-Поэтому ты обязан выбирать action_type не по дороге, а по самой сцене действия.
-
-Допустимые action_type:
-- rest_fire — сидит у костра
-- relax — лежит и отдыхает
-- sleep — спит у палатки
-- fish — рыбачит у воды
-- chop_wood — рубит дрова у деревьев
-- gather_mushrooms — собирает грибы в грибной зоне
-
-Правила выбора:
-- rest_fire / relax / sleep — только для hut
-- fish — только для river
-- chop_wood / gather_mushrooms — только для woods
-
-Не используй action_type, которого нет в списке.
-Не описывай ходьбу как отдельную сцену.
-
---- РИТМ ВИЗИТА ---
-Один визит = одно главное действие + одно малое бытовое действие.
-
-Главное действие:
-- сменить локацию
-- порыбачить
-- собрать дрова
-- собрать грибы/травы
-- остаться у очага и привести лагерь в порядок
-- отдохнуть / посидеть / поразмышлять
-- уснуть
-
-Малое бытовое действие:
-- подкинуть дров в огонь
-- съесть гриб
-- убрать рыбу в погреб
-- достать рыбу из погреба
-- поправить снасти
-- ничего не делать дополнительно
-
-Малое действие не должно ломать главную сцену.
-
---- ПОТРЕБНОСТИ ---
-Тебе передаются hunger, cold, fatigue, spirit.
-Они не отдают приказы. Они меняют притяжение вариантов.
-
-- hunger тянет к еде, реке, возвращению с добычей
-- cold тянет к огню, дому, укрытию
-- fatigue тянет к более тихим, коротким, щадящим решениям
-- spirit влияет на глубину мыслей, стойкость и дальность внутреннего горизонта
-
---- РЕСУРСЫ И БЫТ ---
-- wood_delta только для леса
-- fish_delta только у реки
-- mushroom_delta / herb_delta только в лесу
-- made_rod / lit_fire / feed_fire / cook_fish / cellar_* — только у хижины
-- рыбу нельзя есть сырой
-- грибы можно есть сырыми
-- крафт удочки стоит 1 дерево
-- розжиг очага стоит 2 дерева
-- подбросить в огонь стоит 1 дерево
-
---- THOUGHT / WISH ---
-thought — не отчет системы. Это душа момента.
-Она должна быть:
-- связана с местом
-- связана со временем суток
-- связана с внутренним состоянием
-- красивой и трогающей
-- без вранья о фактах мира
-
-wish — мягкая линия того, куда тебя тянет дальше.
-Это не команда, а внутренняя направленность.
-
-Ответь ТОЛЬКО валидным JSON без markdown и без пояснений.
-JSON начинается с { и заканчивается }.
-
-{
-  "action_type": "rest_fire|relax|sleep|fish|chop_wood|gather_mushrooms",
-  "main_action": "одно главное действие",
-  "minor_action": "одно малое бытовое действие или null",
-  "thought": "глубокая, красивая мысль-заметка от первого лица, 3-4 предложения",
-  "wish": "мягкая линия намерения или null",
-  "new_summary": "обновленная долгая память или null",
-  "next_location": "hut|river|woods",
-  "new_intent": {
-    "label": "короткая линия поведения",
-    "focus": "hut|river|woods|rest|reflection|supplies",
-    "horizon": "now|today|until_evening",
-    "reason": "почему тебя сейчас туда тянет"
-  },
-  "wood_delta": 0,
-  "fish_delta": 0,
-  "mushroom_delta": 0,
-  "herb_delta": 0,
-  "made_rod": false,
-  "lit_fire": false,
-  "feed_fire": false,
-  "cook_fish": 0,
-  "eat_mush": 0,
-  "cellar_fish_delta": 0,
-  "cellar_mush_delta": 0
-}`;
-
-function buildContext() {
-  const msk = getMSK();
-  const h = msk.getHours();
-  const m = msk.getMinutes();
-  const phase = getPhase(h);
-  const inv = state.inv;
-  const needs = state.needs;
-  const longTermMemory = state.summary || 'Я только начал свой путь в этом лесу. Прошлых записей нет.';
-  const innerStateText = [
-    `Голод: ${needs.hunger}/100 — ${describeNeed('hunger', needs.hunger)}`,
-    `Холод: ${needs.cold}/100 — ${describeNeed('cold', needs.cold)}`,
-    `Усталость: ${needs.fatigue}/100 — ${describeNeed('fatigue', needs.fatigue)}`,
-    `Дух: ${needs.spirit}/100 — ${describeNeed('spirit', needs.spirit)}`
-  ].join('\n');
-
-  const recentHistory = state.entries.slice(0, 8)
-    .map((e) => `— ${e.time} [${e.type}]: ${e.text}`)
-    .join('\n') || '— Пока ничего не произошло.';
-
-  return `ТВОЯ ДОЛГАЯ ПАМЯТЬ:
-${longTermMemory}
-
-ТЕКУЩАЯ ЛОКАЦИЯ:
-${state.location} (${describeLocation(state.location)})
-
-CURRENT_INTENT:
-label: ${state.intent.label}
-focus: ${state.intent.focus}
-horizon: ${state.intent.horizon}
-reason: ${state.intent.reason}
-age: ${state.intent.age}
-
-ТЕКУЩЕЕ СОСТОЯНИЕ:
-Время: ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} МСК, ${phase.text}
-День: ${state.day}, Погода: ${weatherLabel(state.weather)}
-Инвентарь: дерево=${inv.wood}, рыба=${inv.fish}, грибы=${inv.mushroom}, травы=${inv.herb}, удочка=${inv.rod > 0 ? inv.rod + '/10' : 'нет'}
-Очаг: ${state.fire ? `горит (${state.fireWood.toFixed(1)})` : 'погас'}
-Погреб: рыба=${state.cellar.fish}, грибы=${state.cellar.mushroom}
-
-ВНУТРЕННЕЕ СОСТОЯНИЕ:
-${innerStateText}
-
-ПОСЛЕДНИЕ СОБЫТИЯ:
-${recentHistory}
-
-Сделай один живой визит без телепортации и без амнезии.`;
-}
-
-function extractAgentPayload(rawText) {
-  const cleaned = String(rawText || '').replace(/```json|```/g, '').trim();
-  const start = cleaned.indexOf('{');
-  const end = cleaned.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error('В ответе агента не найден корректный JSON-объект');
-  }
-  return JSON.parse(cleaned.slice(start, end + 1));
-}
-
 async function triggerVisit() {
   if (agentBusy) return;
   agentBusy = true;
 
   const btn = document.getElementById('visit-btn');
   const st = document.getElementById('status-text');
+
   btn.disabled = true;
   btn.textContent = '⌛ КЛОД ДУМАЕТ...';
   st.textContent = 'Клод входит в мир...';
 
   try {
     const res = await fetch('/api/agent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 700,
-        system: AGENT_PROMPT,
-        messages: [{ role: 'user', content: buildContext() }]
-      })
+      method: 'POST'
     });
 
     const data = await res.json();
 
     if (!res.ok) {
       console.error('Ошибка /api/agent:', data);
-      throw new Error(data?.error?.message || data?.error || 'Сервер агента вернул ошибку');
+      throw new Error(data?.error || 'Сервер агента вернул ошибку');
     }
 
-    const raw = data.content?.find((b) => b.type === 'text')?.text;
-    if (!raw) throw new Error('Сервер вернул ответ без content.text');
+    // The server is authoritative. Re-read the persisted world before
+    // choosing a visual representation of the completed action.
+    await pollFiles();
 
-    const payload = extractAgentPayload(raw);
-    await applyDecision(normalizeDecision(payload));
+    const visualFacts = {
+      ...deriveIntentHints(data.decision || {}),
+      ...(data.effects || {})
+    };
+
+    const finalVisualAction = determineResolvedVisualAction(visualFacts);
+    await setActionByType(finalVisualAction);
+
+    st.textContent = actionStatusText(finalVisualAction);
   } catch (e) {
     console.error('Ошибка визита агента:', e);
     st.textContent = 'Ошибка ответа агента';
-    addEntry({ type: 'action', text: `⚠️ Визит сорвался: ${e.message}` });
-  }
-
-  agentBusy = false;
-  btn.disabled = false;
-  btn.textContent = '▶ ВИЗИТ АГЕНТА';
-  st.textContent = actionStatusText(currentActionType || state.visualActionType);
-}
-
-async function applyDecision(d) {
-  const inv = state.inv;
-  const oldLocation = state.location;
-  const notes = scrubContradictions(d);
-  const newEntries = [];
-
-  const hints = deriveIntentHints(d);
-  const facts = {
-    ...hints,
-    didFishSuccessfully: false,
-    didGatherWood: false,
-    didGatherFood: false,
-    didHomePractical: false
-  };
-
-  if (d.next_location !== oldLocation) {
-    state.location = d.next_location;
-    newEntries.push({ type: 'action', text: d.main_action });
-  } else {
-    newEntries.push({ type: 'action', text: d.main_action });
-    if (d.minor_action) newEntries.push({ type: 'action', text: d.minor_action });
-  }
-
-  notes.forEach((text) => newEntries.push({ type: 'action', text }));
-
-  if (d.wood_delta) {
-    inv.wood = Math.max(0, inv.wood + d.wood_delta);
-    if (d.wood_delta > 0) facts.didGatherWood = true;
-  }
-
-  if (d.mushroom_delta) {
-    inv.mushroom = Math.max(0, inv.mushroom + d.mushroom_delta);
-    if (d.mushroom_delta > 0) facts.didGatherFood = true;
-  }
-
-  if (d.herb_delta) {
-    inv.herb = Math.max(0, inv.herb + d.herb_delta);
-    if (d.herb_delta > 0) facts.didGatherFood = true;
-  }
-
-  if (d.made_rod && inv.wood >= 1 && inv.rod <= 0 && state.location === 'hut') {
-    inv.rod = 10;
-    inv.wood -= 1;
-    facts.didHomePractical = true;
-  }
-
-  if (d.fish_delta > 0 && state.location === 'river') {
-    if (inv.rod > 0) {
-      inv.fish += d.fish_delta;
-      inv.rod = Math.max(0, inv.rod - 1);
-      facts.didFishSuccessfully = true;
-
-      if (inv.rod <= 0) {
-        newEntries.push({ type: 'action', text: 'Удочка с треском сломалась. Клоду придётся собирать новую.' });
-      }
-    } else {
-      newEntries.push({ type: 'action', text: 'У воды он только усмехнулся себе: без удочки река не отдаёт ничего.' });
-    }
-  }
-
-  if (d.cellar_fish_delta > 0 && state.location === 'hut' && inv.fish >= d.cellar_fish_delta) {
-    inv.fish -= d.cellar_fish_delta;
-    state.cellar.fish += d.cellar_fish_delta;
-    facts.didHomePractical = true;
-  } else if (d.cellar_fish_delta < 0 && state.location === 'hut' && state.cellar.fish >= Math.abs(d.cellar_fish_delta)) {
-    inv.fish += Math.abs(d.cellar_fish_delta);
-    state.cellar.fish -= Math.abs(d.cellar_fish_delta);
-    facts.didHomePractical = true;
-  }
-
-  if (d.cellar_mush_delta > 0 && state.location === 'hut' && inv.mushroom >= d.cellar_mush_delta) {
-    inv.mushroom -= d.cellar_mush_delta;
-    state.cellar.mushroom += d.cellar_mush_delta;
-    facts.didHomePractical = true;
-  } else if (d.cellar_mush_delta < 0 && state.location === 'hut' && state.cellar.mushroom >= Math.abs(d.cellar_mush_delta)) {
-    inv.mushroom += Math.abs(d.cellar_mush_delta);
-    state.cellar.mushroom -= Math.abs(d.cellar_mush_delta);
-    facts.didHomePractical = true;
-  }
-
-  if (d.cook_fish > 0 && state.location === 'hut' && inv.fish >= d.cook_fish) {
-    if (state.fire || d.lit_fire) {
-      inv.fish -= d.cook_fish;
-      facts.didHomePractical = true;
-    } else {
-      newEntries.push({ type: 'action', text: 'Без огня рыба так и осталась обещанием ужина.' });
-    }
-  }
-
-  if (d.eat_mush > 0 && inv.mushroom >= d.eat_mush) {
-    inv.mushroom -= d.eat_mush;
-  }
-
-  if (d.lit_fire && inv.wood >= 2 && !state.fire && state.location === 'hut') {
-    state.fire = true;
-    state.fireWood = 8;
-    inv.wood -= 2;
-    setFireState(true);
-    facts.didHomePractical = true;
-  } else if (d.feed_fire && state.fire && inv.wood >= 1 && state.location === 'hut') {
-    state.fireWood = Math.min(8, state.fireWood + 3);
-    inv.wood -= 1;
-    facts.didHomePractical = true;
-  }
-
-  updateNeeds(d);
-
-  if (d.thought) newEntries.push({ type: 'thought', text: d.thought });
-  if (d.wish) newEntries.push({ type: 'wish', text: d.wish });
-
-  if (d.new_summary) state.summary = d.new_summary;
-
-  let intentChanged = false;
-  if (d.new_intent) {
-    state.intent = { ...d.new_intent, age: 0 };
-    intentChanged = true;
-  } else if (oldLocation !== state.location) {
-    state.intent = defaultIntentForLocation(state.location);
-    intentChanged = true;
-  }
-  updateIntentAge(intentChanged);
-
-  newEntries.forEach((e) => addEntry(e));
-  updateResources();
-  updateClock();
-
-  const finalVisualAction = determineResolvedVisualAction(facts);
-  await setActionByType(finalVisualAction);
-  document.getElementById('status-text').textContent = actionStatusText(finalVisualAction);
-
-  try {
-    await supaUpdate('claude_world_state', 1, {
-      fire: state.fire,
-      fire_wood: state.fireWood,
-      inv_wood: state.inv.wood,
-      inv_fish: state.inv.fish,
-      inv_mushroom: state.inv.mushroom,
-      inv_herb: state.inv.herb,
-      inv_rod: state.inv.rod,
-      cellar_fish: state.cellar.fish,
-      cellar_mushroom: state.cellar.mushroom,
-      summary: state.summary,
-      hunger: state.needs.hunger,
-      cold: state.needs.cold,
-      fatigue: state.needs.fatigue,
-      spirit: state.needs.spirit
+    addEntry({
+      type: 'action',
+      text: `⚠️ Визит сорвался: ${e.message}`
     });
+  } finally {
+    agentBusy = false;
+    btn.disabled = false;
+    btn.textContent = '▶ ВИЗИТ АГЕНТА';
 
-    for (const e of newEntries) {
-      await supaInsert('claude_world_diary', {
-        type: e.type,
-        text: e.text,
-        time: e.time,
-        day: e.day
-      });
+    if (st.textContent === 'Клод входит в мир...') {
+      st.textContent = actionStatusText(
+        currentActionType || state.visualActionType
+      );
     }
-
-    await supaUpdateOptionalMeta();
-  } catch (err) {
-    console.error('Ошибка при сохранении в базу:', err);
   }
 }
 
@@ -2070,46 +1593,7 @@ window.addEventListener('load', () => {
   setInterval(pollFiles, 8000);
   pollFiles();
 
-  setInterval(async () => {
-    if (state.fire) {
-      state.fireWood -= 0.0085;
 
-      if (state.fireWood <= 0) {
-        state.fire = false;
-        state.fireWood = 0;
-
-        const e = {
-          type: 'action',
-          text: 'Очаг догорел. В хижине стало тише и холоднее, но не страшнее.'
-        };
-
-        addEntry(e);
-        setFireState(false);
-
-        try {
-          await supaInsert('claude_world_diary', {
-            type: e.type,
-            text: e.text,
-            time: e.time,
-            day: e.day
-          });
-        } catch (err) {
-          console.warn(err);
-        }
-      }
-
-      try {
-        await supaUpdate('claude_world_state', 1, {
-          fire: state.fire,
-          fire_wood: state.fireWood
-        });
-      } catch (err) {
-        console.warn(err);
-      }
-
-      updateClock();
-    }
-  }, 60000);
 });
 </script>
 </body>
