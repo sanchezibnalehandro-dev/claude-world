@@ -1,4 +1,10 @@
 import { normalizeAgentDecision } from '../shared/agent-decision.js';
+import {
+  defaultIntentForLocation,
+  scrubContradictions,
+  updateIntentAge,
+  updateNeeds
+} from '../shared/simulation-rules.js';
 
 export default async function handler(req, res) {
   const authHeader = req.headers.authorization;
@@ -72,140 +78,11 @@ export default async function handler(req, res) {
     return '';
   }
 
-  function defaultIntentForLocation(loc) {
-    if (loc === 'river') {
-      return {
-        label: 'слежу за рекой и прислушиваюсь к воде',
-        focus: 'river',
-        horizon: 'today',
-        reason: 'день тянет к течению и живому движению',
-        age: 0
-      };
-    }
-    if (loc === 'woods') {
-      return {
-        label: 'иду в лес и позволяю ему самому подсказать занятие',
-        focus: 'woods',
-        horizon: 'today',
-        reason: 'лес лучше слышно, когда не тащишь его силой',
-        age: 0
-      };
-    }
-    return {
-      label: 'держусь ближе к огню и собираю себя',
-      focus: 'hut',
-      horizon: 'today',
-      reason: 'у дома лучше слышно, чего на самом деле хочется',
-      age: 0
-    };
-  }
-
   function normalizeDecision(raw, state) {
     return normalizeAgentDecision(raw, state, {
       fallbackMainAction: 'Клод задержался на месте и не стал ломать ритм мира силой.',
       fallbackThought: 'Тишина не всегда даёт ответы, но умеет возвращать ритм дыхания.'
     });
-  }
-
-  function updateNeeds(state, d) {
-    const n = state.needs;
-    const h = getMSK().getHours();
-
-    n.hunger += 6;
-    n.fatigue += 2;
-
-    if (state.weather === 'rain') n.cold += 3;
-    if (state.weather === 'storm') n.cold += 5;
-
-    if (state.fire && state.location === 'hut') {
-      n.cold -= 10;
-    } else if (h >= 18 || h < 7) {
-      n.cold += 7;
-    } else {
-      n.cold += 2;
-    }
-
-    if (d.wood_delta > 0) { n.fatigue += 6; n.spirit -= 1; }
-    if (d.fish_delta > 0) { n.fatigue += 4; n.spirit += 1; }
-    if (d.mushroom_delta > 0 || d.herb_delta > 0) { n.fatigue += 2; n.spirit += 1; }
-    if (d.made_rod) { n.fatigue += 1; n.spirit += 2; }
-    if (d.lit_fire) { n.cold -= 22; n.spirit += 5; }
-    else if (d.feed_fire) { n.cold -= 8; n.spirit += 2; }
-    if (d.cook_fish > 0) { n.hunger -= 24 * d.cook_fish; n.spirit += 3; }
-    if (d.eat_mush > 0) n.hunger -= 12 * d.eat_mush;
-
-    const didPractical = Boolean(
-      d.wood_delta > 0 || d.fish_delta > 0 || d.mushroom_delta > 0 || d.herb_delta > 0 ||
-      d.made_rod || d.lit_fire || d.feed_fire || d.cook_fish > 0 ||
-      d.cellar_fish_delta !== 0 || d.cellar_mush_delta !== 0
-    );
-
-    if (!didPractical) {
-      n.fatigue -= 3;
-      n.spirit += 4;
-    }
-    if (n.hunger > 70) n.spirit -= 4;
-    if (n.cold > 70) n.spirit -= 5;
-    if (n.fatigue > 80) n.spirit -= 4;
-
-    n.hunger = clampNeed(n.hunger);
-    n.cold = clampNeed(n.cold);
-    n.fatigue = clampNeed(n.fatigue);
-    n.spirit = clampNeed(n.spirit);
-  }
-
-  function updateIntentAge(state, didChangeIntent) {
-    state.intent.age = didChangeIntent ? 0 : Math.min((state.intent.age || 0) + 1, 99);
-  }
-
-  function canDoLocationAction(loc, d) {
-    if (d.eat_mush > 0) return true;
-    if (loc === 'river') return d.fish_delta > 0;
-    if (loc === 'woods') return d.wood_delta > 0 || d.mushroom_delta > 0 || d.herb_delta > 0;
-    if (loc === 'hut') {
-      return d.made_rod || d.lit_fire || d.feed_fire || d.cook_fish > 0 ||
-        d.cellar_fish_delta !== 0 || d.cellar_mush_delta !== 0;
-    }
-    return false;
-  }
-
-  function scrubContradictions(state, d) {
-    const notes = [];
-    const moving = d.next_location !== state.location;
-    const practicalAtOldPlace = canDoLocationAction(state.location, d);
-
-    if (moving && practicalAtOldPlace) {
-      notes.push('Клод сменил место — поэтому практические действия я свёл к нулю, чтобы мир не телепортировался.');
-      d.wood_delta = 0;
-      d.fish_delta = 0;
-      d.mushroom_delta = 0;
-      d.herb_delta = 0;
-      d.made_rod = false;
-      d.lit_fire = false;
-      d.feed_fire = false;
-      d.cook_fish = 0;
-      d.cellar_fish_delta = 0;
-      d.cellar_mush_delta = 0;
-    }
-
-    if (!moving) {
-      if (state.location !== 'river') d.fish_delta = 0;
-      if (state.location !== 'woods') {
-        d.wood_delta = 0;
-        d.mushroom_delta = 0;
-        d.herb_delta = 0;
-      }
-      if (state.location !== 'hut') {
-        d.made_rod = false;
-        d.lit_fire = false;
-        d.feed_fire = false;
-        d.cook_fish = 0;
-        d.cellar_fish_delta = 0;
-        d.cellar_mush_delta = 0;
-      }
-    }
-
-    return notes;
   }
 
   function extractAgentPayload(rawText) {
@@ -572,7 +449,7 @@ ${recentHistory || '— Пока ничего не произошло.'}
       inv.wood -= 1;
     }
 
-    updateNeeds(state, d);
+    updateNeeds(state, d, h);
 
     if (d.thought) newEntries.push({ type: 'thought', text: d.thought, time: timeStr, day: state.day });
     if (d.wish) newEntries.push({ type: 'wish', text: d.wish, time: timeStr, day: state.day });
