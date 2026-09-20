@@ -1,3 +1,5 @@
+import { normalizeAgentDecision } from '../shared/agent-decision.js';
+
 export default async function handler(req, res) {
   const authHeader = req.headers.authorization;
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -99,34 +101,10 @@ export default async function handler(req, res) {
   }
 
   function normalizeDecision(raw, state) {
-    const d = raw && typeof raw === 'object' ? raw : {};
-    return {
-      main_action: safeText(d.main_action, 'Клод задержался на месте и не стал ломать ритм мира силой.'),
-      minor_action: safeText(d.minor_action, ''),
-      thought: safeText(d.thought, 'Тишина не всегда даёт ответы, но умеет возвращать ритм дыхания.'),
-      wish: safeText(d.wish, ''),
-      new_summary: safeText(d.new_summary, ''),
-      next_location: ['hut', 'river', 'woods'].includes(d.next_location) ? d.next_location : state.location,
-      new_intent: d.new_intent && typeof d.new_intent === 'object'
-        ? {
-            label: safeText(d.new_intent.label, state.intent.label),
-            focus: safeText(d.new_intent.focus, state.intent.focus),
-            horizon: safeText(d.new_intent.horizon, state.intent.horizon),
-            reason: safeText(d.new_intent.reason, state.intent.reason)
-          }
-        : null,
-      wood_delta: Number(d.wood_delta || 0),
-      fish_delta: Number(d.fish_delta || 0),
-      mushroom_delta: Number(d.mushroom_delta || 0),
-      herb_delta: Number(d.herb_delta || 0),
-      made_rod: Boolean(d.made_rod),
-      lit_fire: Boolean(d.lit_fire),
-      feed_fire: Boolean(d.feed_fire),
-      cook_fish: Number(d.cook_fish || 0),
-      eat_mush: Number(d.eat_mush || 0),
-      cellar_fish_delta: Number(d.cellar_fish_delta || 0),
-      cellar_mush_delta: Number(d.cellar_mush_delta || 0)
-    };
+    return normalizeAgentDecision(raw, state, {
+      fallbackMainAction: 'Клод задержался на месте и не стал ломать ритм мира силой.',
+      fallbackThought: 'Тишина не всегда даёт ответы, но умеет возвращать ритм дыхания.'
+    });
   }
 
   function updateNeeds(state, d) {
