@@ -143,8 +143,8 @@ Every cleanup commit should preserve current observable behaviour unless explici
 
 1. Freeze legacy snapshot. ✅
 2. Record architecture and known defects. ✅
-3. Create shared domain model and decision schema.
-4. Extract pure simulation rules from UI and cron.
+3. Create shared domain model and decision schema. ✅
+4. Extract pure simulation rules from UI and cron. ✅
 5. Make server the only state mutation path.
 6. Split frontend rendering/UI into modules.
 7. Repair or remove broken asset references.
