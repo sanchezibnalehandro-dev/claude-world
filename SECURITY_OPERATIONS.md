@@ -1,12 +1,18 @@
-# Claude World manual visits: security operations
+# Security status: Claude World
 
-The public web page may be browsed without login, but paid AI calls are an **operator-only** action.
+## Manual visits
 
-1. Set `AGENT_ACCESS_TOKEN` as an encrypted server-only Vercel Environment Variable for the intended deployment environment. Generate a unique, unpredictable 32+ character token. Example generation command: `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`. Never use `NEXT_PUBLIC_` or commit the token.
-2. Keep `ANTHROPIC_API_KEY` server-only and configure spending limits and usage alerts at the provider. The per-instance 4/minute guard is *not* a globally enforced spending budget.
-3. When you click **ВИЗИТ АГЕНТА** the browser asks for the private code. The code lives only in page memory until reload, not in URLs or localStorage.
-4. `POST /api/agent` requires Bearer token, enforces a one-message bounded request, and selects a fixed Anthropic model and 700 output tokens. Without `AGENT_ACCESS_TOKEN`, it responds 503 and never calls the paid provider.
-5. `GET /api/cron` requires existing `CRON_SECRET`. Without it the endpoint fails closed. Use a different secret from `AGENT_ACCESS_TOKEN`.
-6. Before production release, test invalid/missing codes, valid operator visit, cron schedule, provider billing alerts, and rollback. The frontend still uses direct browser-to-Supabase calls; **review those RLS policies separately**.
+Manual **«Визит агента»** is disabled until the owner explicitly approves an authenticated implementation. The page control is disabled, and `POST /api/agent` always returns HTTP 410 without contacting Anthropic. Do not add a public unguarded proxy to restore the button.
 
-**Known limitations:** password entry protects the paid endpoint but is not a multi-user login, and simple rate limiting is process-local. A compromised access code permits billable requests within these bounds until rotated. There is no unrestricted anonymous paid-agent mode.
+## Automated visits
+
+The separate `GET /api/cron` continues to require `CRON_SECRET` set in Vercel and the correct Bearer Authorization header; missing secrets fail closed. Verify cron triggers and database RLS separately.
+
+## Production checklist
+
+- Verify GitHub main commit and Vercel production deployment SHA match.
+- Confirm no successful paid calls can be made to `/api/agent`.
+- Check Anthropic API usage for unexpected historical charges; rotate API key if compromise is suspected.
+- Configure provider-side billing limits/alerts.
+- Review anonymous Supabase access and RLS separately.
+- Keep any future restoration of manual visits in its own reviewed PR.
