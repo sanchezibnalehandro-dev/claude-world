@@ -1704,6 +1704,7 @@ function renderDiary() {
 //  AGENT
 // ═══════════════════════════════════════════════════════════
 let agentBusy = false;
+let agentAccessToken = ''; // ephemeral; never saved in localStorage or the page URL
 
 const AGENT_PROMPT = `Ты — Клод. Это не хардкорный survival и не тамагочи, а твой личный лесной мир: хижина, очаг, река, лес, погреб, тишина и дневник. Ты не обязан быть оптимизатором. Ты должен быть живым, последовательным и помнить, что уже происходило.
 
@@ -1894,6 +1895,12 @@ function extractAgentPayload(rawText) {
 
 async function triggerVisit() {
   if (agentBusy) return;
+  if (!agentAccessToken) {
+    const supplied = window.prompt('Введите личный код доступа для запуска агента:');
+    if (!supplied) return;
+    agentAccessToken = supplied.trim();
+    if (!agentAccessToken) return;
+  }
   agentBusy = true;
 
   const btn = document.getElementById('visit-btn');
@@ -1905,7 +1912,10 @@ async function triggerVisit() {
   try {
     const res = await fetch('/api/agent', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${agentAccessToken}`
+      },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 700,
@@ -1916,6 +1926,7 @@ async function triggerVisit() {
 
     const data = await res.json();
 
+    if (res.status === 401) agentAccessToken = ''; // prompt for a corrected secret on the next visit
     if (!res.ok) {
       console.error('Ошибка /api/agent:', data);
       throw new Error(data?.error?.message || data?.error || 'Сервер агента вернул ошибку');
